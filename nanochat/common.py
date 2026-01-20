@@ -214,6 +214,8 @@ def get_peak_flops(device_name: str) -> float:
         return 2.25e15
     if "b100" in name:
         return 1.8e15
+    if "gb10" in name:
+        return 35e12
 
     # --- NVIDIA Hopper (H100/H200/H800) ---
     if "h200" in name:
