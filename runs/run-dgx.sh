@@ -46,31 +46,12 @@ if [ -z "$WANDB_RUN" ]; then
 fi
 
 # Install GPU dependencies with timeout handling
-<<<<<<< HEAD
 uv sync --extra gpu
 
 # train tokenizer on ~2B characters
 # python -m nanochat.dataset -n 8
 # python -m scripts.tok_train --max-chars=2000000000 # b64 -> 163M => max b8x64 = b512
 # python -m scripts.tok_eval
-=======
-echo "Installing GPU dependencies (may take a few minutes on first run)..."
-timeout 6000 bash -c "uv sync --extra gpu" 2>&1 > /dev/null
-if [ $? -eq 124 ]; then
-    echo "GPU dependency installation timed out, falling back to CPU dependencies..."
-    uv sync --extra cpu
-elif [ $? -ne 0 ]; then
-    echo "GPU dependency installation failed, falling back to CPU dependencies..."
-    uv sync --extra cpu
-else
-    echo "GPU dependencies installed successfully"
-fi
-
-# train tokenizer on ~2B characters
-python -m nanochat.dataset -n 8
-python -m scripts.tok_train --max-chars=2000000000
-python -m scripts.tok_eval
->>>>>>> 40c60e5 (rebase from source)
 
 # Detect device type
 CUDA_AVAILABLE=$(python -c "import torch; print(int(torch.cuda.is_available()))")
@@ -82,7 +63,6 @@ else
     echo "Training on CPU (CUDA not available)"
 fi
 
-<<<<<<< HEAD
 echo "Batch sizes (derived from BASE_BATCH_SIZE=$BASE_BATCH_SIZE):"
 echo "  --device-batch-size = $DEVICE_BATCH_SIZE"
 echo "  --total-batch-size = $TOTAL_BATCH_SIZE"
@@ -100,18 +80,6 @@ python -m scripts.base_train \
     --total-batch-size=$TOTAL_BATCH_SIZE \
     --eval-every=100 \
     --eval-tokens=$SPLIT_TOKENS \
-=======
-# train base model on DGX Spark
-python -m scripts.base_train \
-    --depth=6 \
-    --head-dim=64 \
-    --window-pattern=L \
-    --max-seq-len=512 \
-    --device-batch-size=32 \
-    --total-batch-size=16384 \
-    --eval-every=100 \
-    --eval-tokens=524288 \
->>>>>>> 40c60e5 (rebase from source)
     --core-metric-every=-1 \
     --sample-every=100 \
     --num-iterations=5000 \
@@ -119,29 +87,17 @@ python -m scripts.base_train \
     --run=$WANDB_RUN
 
 # evaluate base model
-<<<<<<< HEAD
 python -m scripts.base_loss --device-batch-size=2 --split-tokens=$SPLIT_TOKENS --device-type=$DEVICE_TYPE
-=======
-python -m scripts.base_loss --device-batch-size=1 --split-tokens=16384 --device-type=$DEVICE_TYPE
->>>>>>> 40c60e5 (rebase from source)
 python -m scripts.base_eval --max-per-task=16
 
 # midtraining with identity conversations
 curl -L -o $NANOCHAT_BASE_DIR/identity_conversations.jsonl https://karpathy-public.s3.us-west-2.amazonaws.com/identity_conversations.jsonl
 python -m scripts.mid_train \
-<<<<<<< HEAD
     --max-seq-len=$MAX_SEQ_LENGTH \
     --device-batch-size=$DEVICE_BATCH_SIZE \
     --total-batch-size=$TOTAL_BATCH_SIZE \
     --eval-every=200 \
     --eval-tokens=$SPLIT_TOKENS \
-=======
-    --max-seq-len=512 \
-    --device-batch-size=32 \
-    --total-batch-size=16384 \
-    --eval-every=200 \
-    --eval-tokens=524288 \
->>>>>>> 40c60e5 (rebase from source)
     --num-iterations=1500 \
     --run=$WANDB_RUN
 
