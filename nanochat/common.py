@@ -206,7 +206,6 @@ class DummyWandb:
 # and PR: https://github.com/karpathy/nanochat/pull/147
 def get_peak_flops(device_name: str) -> float:
     name = device_name.lower()
-
     # Table order matters: more specific patterns first.
     _PEAK_FLOPS_TABLE = (
         # NVIDIA Blackwell
@@ -214,6 +213,7 @@ def get_peak_flops(device_name: str) -> float:
         (["grace blackwell"], 2.5e15),
         (["b200"], 2.25e15),
         (["b100"], 1.8e15),
+        (["gb10"], 35e12),
         # NVIDIA Hopper
         (["h200", "nvl"], 836e12),
         (["h200", "pcie"], 836e12),
@@ -248,6 +248,7 @@ def get_peak_flops(device_name: str) -> float:
     for patterns, flops in _PEAK_FLOPS_TABLE:
         if all(p in name for p in patterns):
             return flops
+
     if "data center gpu max 1550" in name:
         # Ponte Vecchio (PVC) - dynamic based on compute units
         max_comp_units = torch.xpu.get_device_properties("xpu").max_compute_units
