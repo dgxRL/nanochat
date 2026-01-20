@@ -15,6 +15,7 @@ import os
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 import argparse
 import time
+from collections import deque
 from contextlib import nullcontext
 
 import wandb
@@ -30,6 +31,38 @@ from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_model
 print_banner()
+
+# -----------------------------------------------------------------------------
+# CPU temperature monitoring for DGX Spark thermal protection
+
+def get_cpu_temperature():
+    """
+    Get CPU temperature in Celsius from /sys/class/thermal.
+    Iterates through thermal zones to find "cpu" or "soc".
+    Falls back to zone 0 if specific CPU zone not found.
+    Returns 0.0 on failure (e.g., on non-Linux systems).
+    """
+    try:
+        for zone_id in range(10):
+            temp_path = f"/sys/class/thermal/thermal_zone{zone_id}/temp"
+            type_path = f"/sys/class/thermal/thermal_zone{zone_id}/type"
+
+            if os.path.exists(temp_path) and os.path.exists(type_path):
+                with open(type_path, "r") as f:
+                    zone_type = f.read().strip().lower()
+
+                if "cpu" in zone_type or "soc" in zone_type:
+                    with open(temp_path, "r") as f:
+                        return int(f.read().strip()) / 1000
+
+        # Fallback to zone 0
+        fallback_path = "/sys/class/thermal/thermal_zone0/temp"
+        if os.path.exists(fallback_path):
+            with open(fallback_path, "r") as f:
+                return int(f.read().strip()) / 1000
+    except (IOError, ValueError):
+        pass
+    return 0.0
 
 # -----------------------------------------------------------------------------
 # CLI arguments
@@ -258,6 +291,11 @@ def get_weight_decay(it):
 # -----------------------------------------------------------------------------
 # Loop state (variables updated by the training loop)
 
+# CPU temperature monitoring for DGX Spark thermal protection
+cpu_temp_history = deque(maxlen=100)
+CPU_TEMP_PAUSE_THRESHOLD = 92.0  # Pause training if 100-step avg exceeds this
+CPU_TEMP_RESUME_THRESHOLD = 85.0  # Resume when current temp drops below this
+
 if not resuming:
     step = 0
     val_bpb = None # will be set if eval_every > 0
@@ -429,6 +467,22 @@ while True:
 
     # state update
     step += 1
+
+    # CPU temperature monitoring: pause if overheating to prevent crashes on DGX Spark
+    current_temp = get_cpu_temperature()
+    cpu_temp_history.append(current_temp)
+    if len(cpu_temp_history) == 100:
+        avg_temp = sum(cpu_temp_history) / 100
+        if avg_temp > CPU_TEMP_PAUSE_THRESHOLD:
+            print0(f"WARNING: CPU Overheating (Avg: {avg_temp:.1f}C). Pausing training...")
+            while True:
+                time.sleep(10)
+                current_temp = get_cpu_temperature()
+                print0(f"Current CPU Temp: {current_temp:.1f}C. Waiting for < {CPU_TEMP_RESUME_THRESHOLD}C...")
+                if current_temp < CPU_TEMP_RESUME_THRESHOLD:
+                    print0("CPU Cooled down. Resuming training...")
+                    cpu_temp_history.clear()  # Reset history after cooling
+                    break
 
 # print a few more stats
 print0(f"Peak memory usage: {get_max_memory() / 1024 / 1024:.2f}MiB")
