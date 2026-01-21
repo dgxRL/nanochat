@@ -15,7 +15,6 @@ import os
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 import argparse
 import time
-from collections import deque
 from contextlib import nullcontext
 
 import wandb
@@ -263,8 +262,8 @@ def get_weight_decay(it):
 # Loop state (variables updated by the training loop)
 
 # CPU temperature monitoring for DGX Spark thermal protection
-cpu_temp_history = deque(maxlen=50)
-CPU_TEMP_PAUSE_THRESHOLD = 92.0  # Pause training if 50-step avg exceeds this
+cpu_temp_history = []  # stores last 50 temperatures
+CPU_TEMP_PAUSE_THRESHOLD = 92.0  # Pause training if avg exceeds this
 CPU_TEMP_RESUME_THRESHOLD = 85.0  # Resume when current temp drops below this
 
 if not resuming:
@@ -437,19 +436,25 @@ while True:
             "train/temp": current_temp,
         }
         wandb_run.log(log_data)
+
+    # CPU temperature monitoring: pause if overheating to prevent crashes on DGX Spark
+    # Add current temp to tail of history
     cpu_temp_history.append(current_temp)
-    if len(cpu_temp_history) == 50:
-        avg_temp = sum(cpu_temp_history) / 50
-        if avg_temp > CPU_TEMP_PAUSE_THRESHOLD:
-            print0(f"WARNING: CPU Overheating (Avg: {avg_temp:.1f}C). Pausing training...")
-            while True:
-                time.sleep(10)
-                current_temp = get_cpu_temperature()
-                print0(f"Current CPU Temp: {current_temp:.1f}C. Waiting for < {CPU_TEMP_RESUME_THRESHOLD}C...")
-                if current_temp < CPU_TEMP_RESUME_THRESHOLD:
-                    print0("CPU Cooled down. Resuming training...")
-                    cpu_temp_history.clear()  # Reset history after cooling
-                    break
+    # If over 50 entries, remove oldest from head
+    if len(cpu_temp_history) > 50:
+        cpu_temp_history.pop(0)
+    # Check average temperature
+    avg_temp = sum(cpu_temp_history) / len(cpu_temp_history)
+    if avg_temp > CPU_TEMP_PAUSE_THRESHOLD:
+        print0(f"WARNING: CPU Overheating (Avg: {avg_temp:.1f}C). Pausing training...")
+        while True:
+            time.sleep(10)
+            current_temp = get_cpu_temperature()
+            print0(f"Current CPU Temp: {current_temp:.1f}C. Waiting for < {CPU_TEMP_RESUME_THRESHOLD}C...")
+            if current_temp < CPU_TEMP_RESUME_THRESHOLD:
+                print0("CPU Cooled down. Resuming training...")
+                cpu_temp_history.clear()  # Reset history after cooling
+                break
 
     # state update
     step += 1
