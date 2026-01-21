@@ -23,7 +23,7 @@ import torch
 
 from nanochat.gpt import GPT, GPTConfig
 from nanochat.dataloader import tokenizing_distributed_data_loader_bos_bestfit, tokenizing_distributed_data_loader_with_state_bos_bestfit
-from nanochat.common import compute_init, compute_cleanup, print0, DummyWandb, print_banner, get_base_dir, autodetect_device_type, get_peak_flops
+from nanochat.common import compute_init, compute_cleanup, print0, DummyWandb, print_banner, get_base_dir, autodetect_device_type, get_peak_flops, get_cpu_temperature
 from nanochat.tokenizer import get_tokenizer, get_token_bytes
 from nanochat.checkpoint_manager import save_checkpoint, load_checkpoint
 from nanochat.loss_eval import evaluate_bpb
@@ -31,38 +31,6 @@ from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_core
 print_banner()
-
-# -----------------------------------------------------------------------------
-# CPU temperature monitoring for DGX Spark thermal protection
-
-def get_cpu_temperature():
-    """
-    Get CPU temperature in Celsius from /sys/class/thermal.
-    Iterates through thermal zones to find "cpu" or "soc".
-    Falls back to zone 0 if specific CPU zone not found.
-    Returns 0.0 on failure (e.g., on non-Linux systems).
-    """
-    try:
-        for zone_id in range(10):
-            temp_path = f"/sys/class/thermal/thermal_zone{zone_id}/temp"
-            type_path = f"/sys/class/thermal/thermal_zone{zone_id}/type"
-
-            if os.path.exists(temp_path) and os.path.exists(type_path):
-                with open(type_path, "r") as f:
-                    zone_type = f.read().strip().lower()
-
-                if "cpu" in zone_type or "soc" in zone_type:
-                    with open(temp_path, "r") as f:
-                        return int(f.read().strip()) / 1000
-
-        # Fallback to zone 0
-        fallback_path = "/sys/class/thermal/thermal_zone0/temp"
-        if os.path.exists(fallback_path):
-            with open(fallback_path, "r") as f:
-                return int(f.read().strip()) / 1000
-    except (IOError, ValueError):
-        pass
-    return 0.0
 
 # -----------------------------------------------------------------------------
 # CLI arguments
@@ -295,8 +263,8 @@ def get_weight_decay(it):
 # Loop state (variables updated by the training loop)
 
 # CPU temperature monitoring for DGX Spark thermal protection
-cpu_temp_history = deque(maxlen=100)
-CPU_TEMP_PAUSE_THRESHOLD = 92.0  # Pause training if 100-step avg exceeds this
+cpu_temp_history = deque(maxlen=50)
+CPU_TEMP_PAUSE_THRESHOLD = 92.0  # Pause training if 50-step avg exceeds this
 CPU_TEMP_RESUME_THRESHOLD = 85.0  # Resume when current temp drops below this
 
 if not resuming:
@@ -451,7 +419,10 @@ while True:
     else:
         eta_str = ""
     epoch = dataloader_state_dict["epoch"]
-    print0(f"step {step:05d}/{num_iterations:05d} ({pct_done:.2f}%) | loss: {debiased_smooth_loss:.6f} | lrm: {lrm:.2f} | dt: {dt * 1000:.2f}ms | tok/sec: {tok_per_sec:,} | mfu: {mfu:.2f} | epoch: {epoch} | total time: {total_training_time/60:.2f}m{eta_str}")
+    # CPU temperature monitoring: pause if overheating to prevent crashes on DGX Spark
+    current_temp = get_cpu_temperature()
+    print0(f"step {step:05d}/{num_iterations:05d} ({pct_done:.2f}%) | loss: {debiased_smooth_loss:.6f} | lrm: {lrm:.2f} | dt: {dt * 1000:.2f}ms | tok/sec: {tok_per_sec:,} | mfu: {mfu:.2f} | epoch: {epoch} | total time: {total_training_time/60:.2f}m{eta_str} | temp: {current_temp:.1f}C")
+    
     if step % 100 == 0:
         log_data = {
             "step": step,
@@ -463,17 +434,12 @@ while True:
             "train/tok_per_sec": tok_per_sec,
             "train/mfu": mfu,
             "train/epoch": epoch,
+            "train/temp": current_temp,
         }
         wandb_run.log(log_data)
-
-    # state update
-    step += 1
-
-    # CPU temperature monitoring: pause if overheating to prevent crashes on DGX Spark
-    current_temp = get_cpu_temperature()
     cpu_temp_history.append(current_temp)
-    if len(cpu_temp_history) == 100:
-        avg_temp = sum(cpu_temp_history) / 100
+    if len(cpu_temp_history) == 50:
+        avg_temp = sum(cpu_temp_history) / 50
         if avg_temp > CPU_TEMP_PAUSE_THRESHOLD:
             print0(f"WARNING: CPU Overheating (Avg: {avg_temp:.1f}C). Pausing training...")
             while True:
@@ -484,6 +450,9 @@ while True:
                     print0("CPU Cooled down. Resuming training...")
                     cpu_temp_history.clear()  # Reset history after cooling
                     break
+
+    # state update
+    step += 1
 
 # print a few more stats
 print0(f"Peak memory usage: {get_max_memory() / 1024 / 1024:.2f}MiB")

@@ -257,3 +257,32 @@ def get_peak_flops(device_name: str) -> float:
     # Unknown GPU - return inf so MFU shows as 0% rather than a wrong guess
     logger.warning(f"Peak flops undefined for: {device_name}, MFU will show as 0%")
     return float('inf')
+
+def get_cpu_temperature():
+    """
+    Get CPU temperature in Celsius from /sys/class/thermal.
+    Iterates through thermal zones to find "cpu" or "soc".
+    Falls back to zone 0 if specific CPU zone not found.
+    Returns 0.0 on failure (e.g., on non-Linux systems).
+    """
+    try:
+        for zone_id in range(10):
+            temp_path = f"/sys/class/thermal/thermal_zone{zone_id}/temp"
+            type_path = f"/sys/class/thermal/thermal_zone{zone_id}/type"
+
+            if os.path.exists(temp_path) and os.path.exists(type_path):
+                with open(type_path, "r") as f:
+                    zone_type = f.read().strip().lower()
+
+                if "cpu" in zone_type or "soc" in zone_type:
+                    with open(temp_path, "r") as f:
+                        return int(f.read().strip()) / 1000
+
+        # Fallback to zone 0
+        fallback_path = "/sys/class/thermal/thermal_zone0/temp"
+        if os.path.exists(fallback_path):
+            with open(fallback_path, "r") as f:
+                return int(f.read().strip()) / 1000
+    except (IOError, ValueError):
+        pass
+    return 0.0
