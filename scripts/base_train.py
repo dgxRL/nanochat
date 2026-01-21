@@ -22,7 +22,7 @@ import torch
 
 from nanochat.gpt import GPT, GPTConfig
 from nanochat.dataloader import tokenizing_distributed_data_loader_bos_bestfit, tokenizing_distributed_data_loader_with_state_bos_bestfit
-from nanochat.common import compute_init, compute_cleanup, print0, DummyWandb, print_banner, get_base_dir, autodetect_device_type, get_peak_flops, get_cpu_temperature
+from nanochat.common import compute_init, compute_cleanup, print0, DummyWandb, print_banner, get_base_dir, autodetect_device_type, get_peak_flops, get_cpu_temperature, thermal_pause_if_needed
 from nanochat.tokenizer import get_tokenizer, get_token_bytes
 from nanochat.checkpoint_manager import save_checkpoint, load_checkpoint
 from nanochat.loss_eval import evaluate_bpb
@@ -263,8 +263,6 @@ def get_weight_decay(it):
 
 # CPU temperature monitoring for DGX Spark thermal protection
 cpu_temp_history = []  # stores last 20 temperatures
-CPU_TEMP_PAUSE_THRESHOLD = 92.0  # Pause training if avg exceeds this
-CPU_TEMP_RESUME_THRESHOLD = 80.0  # Resume when current temp drops below this
 
 if not resuming:
     step = 0
@@ -438,28 +436,7 @@ while True:
         wandb_run.log(log_data)
 
     # CPU temperature monitoring: pause if overheating to prevent crashes on DGX Spark
-    # Add current temp to tail of history
-    cpu_temp_history.append(current_temp)
-    # If over 20 entries, remove oldest from head
-    if len(cpu_temp_history) > 20:
-        cpu_temp_history.pop(0)
-    # Check average temperature
-    avg_temp = sum(cpu_temp_history) / len(cpu_temp_history)
-    if avg_temp > CPU_TEMP_PAUSE_THRESHOLD:
-        print0(f"WARNING: CPU Overheating (Avg: {avg_temp:.1f}C). Pausing training...")
-        pause_temp_history = [avg_temp]
-        while True:
-            time.sleep(10)
-            current_temp = get_cpu_temperature()
-            pause_temp_history.append(current_temp)
-            if len(pause_temp_history) > 5:
-                pause_temp_history.pop(0)
-            pause_avg_temp = sum(pause_temp_history) / len(pause_temp_history)
-            print0(f"CPU Temp: {current_temp:.1f}C (Avg of last {len(pause_temp_history)}: {pause_avg_temp:.1f}C). Waiting for < {CPU_TEMP_RESUME_THRESHOLD}C...")
-            if len(pause_temp_history) > 2 and pause_avg_temp < CPU_TEMP_RESUME_THRESHOLD:
-                print0("CPU Cooled down. Resuming training...")
-                cpu_temp_history.clear()  # Reset history after cooling
-                break
+    thermal_pause_if_needed(cpu_temp_history, current_temp)
 
     # state update
     step += 1

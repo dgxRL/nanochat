@@ -286,3 +286,44 @@ def get_cpu_temperature():
     except (IOError, ValueError):
         pass
     return 0.0
+
+def thermal_pause_if_needed(cpu_temp_history, current_temp, pause_threshold=92.0, resume_threshold=80.0, history_size=20):
+    """
+    Check CPU temperature and pause training if overheating.
+    
+    Args:
+        cpu_temp_history: list storing recent temperatures (modified in place)
+        current_temp: current CPU temperature reading
+        pause_threshold: pause if average exceeds this (default 92.0C)
+        resume_threshold: resume when avg of last 5 drops below this (default 80.0C)
+        history_size: number of temperature readings to keep (default 20)
+    
+    Returns:
+        True if training was paused and resumed, False otherwise
+    """
+    import time
+    
+    # Add current temp to tail of history
+    cpu_temp_history.append(current_temp)
+    # If over history_size entries, remove oldest from head
+    if len(cpu_temp_history) > history_size:
+        cpu_temp_history.pop(0)
+    
+    # Check average temperature
+    avg_temp = sum(cpu_temp_history) / len(cpu_temp_history)
+    if avg_temp > pause_threshold:
+        print0(f"WARNING: CPU Overheating (Avg: {avg_temp:.1f}C). Pausing training...")
+        pause_temp_history = [avg_temp]
+        while True:
+            time.sleep(10)
+            current_temp = get_cpu_temperature()
+            pause_temp_history.append(current_temp)
+            if len(pause_temp_history) > 5:
+                pause_temp_history.pop(0)
+            pause_avg_temp = sum(pause_temp_history) / len(pause_temp_history)
+            print0(f"CPU Temp: {current_temp:.1f}C (Avg of last {len(pause_temp_history)}: {pause_avg_temp:.1f}C). Waiting for < {resume_threshold}C...")
+            if len(pause_temp_history) > 2 and pause_avg_temp < resume_threshold:
+                print0("CPU Cooled down. Resuming training...")
+                cpu_temp_history.clear()  # Reset history after cooling
+                return True
+    return False
