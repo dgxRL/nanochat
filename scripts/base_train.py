@@ -447,7 +447,7 @@ while True:
     avg_temp = sum(cpu_temp_history) / len(cpu_temp_history)
     if avg_temp > CPU_TEMP_PAUSE_THRESHOLD:
         print0(f"WARNING: CPU Overheating (Avg: {avg_temp:.1f}C). Pausing training...")
-        pause_temp_history = []
+        pause_temp_history = [avg_temp]
         while True:
             time.sleep(10)
             current_temp = get_cpu_temperature()
