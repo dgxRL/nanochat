@@ -259,7 +259,7 @@ def get_weight_decay(it):
 # Loop state (variables updated by the training loop)
 
 # CPU temperature monitoring for DGX Spark thermal protection
-cpu_temp_history = []  # stores last 50 temperatures
+cpu_temp_history = []  # stores last 20 temperatures
 CPU_TEMP_PAUSE_THRESHOLD = 92.0  # Pause training if avg exceeds this
 CPU_TEMP_RESUME_THRESHOLD = 80.0  # Resume when current temp drops below this
 
@@ -439,8 +439,8 @@ while True:
     # CPU temperature monitoring: pause if overheating to prevent crashes on DGX Spark
     # Add current temp to tail of history
     cpu_temp_history.append(current_temp)
-    # If over 50 entries, remove oldest from head
-    if len(cpu_temp_history) > 50:
+    # If over 20 entries, remove oldest from head
+    if len(cpu_temp_history) > 20:
         cpu_temp_history.pop(0)
     # Check average temperature
     avg_temp = sum(cpu_temp_history) / len(cpu_temp_history)
