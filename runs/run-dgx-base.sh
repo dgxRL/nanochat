@@ -24,7 +24,7 @@
 # b32_d6_H128 -> 21.8GB, 9 minutes
 
 # base: batch=32, seq_len = 512, depth = 6
-BASE_BATCH_SIZE=16
+BASE_BATCH_SIZE=32
 MAX_SEQ_LENGTH=2048 # default 512
 DEPTH=20 # default 6
 HEAD_DIM=64
