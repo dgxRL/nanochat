@@ -455,7 +455,7 @@ while True:
                 pause_temp_history.pop(0)
             pause_avg_temp = sum(pause_temp_history) / len(pause_temp_history)
             print0(f"CPU Temp: {current_temp:.1f}C (Avg of last {len(pause_temp_history)}: {pause_avg_temp:.1f}C). Waiting for < {CPU_TEMP_RESUME_THRESHOLD}C...")
-            if pause_avg_temp < CPU_TEMP_RESUME_THRESHOLD:
+            if len(pause_temp_history) > 2 and pause_avg_temp < CPU_TEMP_RESUME_THRESHOLD:
                 print0("CPU Cooled down. Resuming training...")
                 cpu_temp_history.clear()  # Reset history after cooling
                 break
