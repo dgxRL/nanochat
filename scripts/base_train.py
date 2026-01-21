@@ -261,7 +261,7 @@ def get_weight_decay(it):
 # CPU temperature monitoring for DGX Spark thermal protection
 cpu_temp_history = []  # stores last 50 temperatures
 CPU_TEMP_PAUSE_THRESHOLD = 92.0  # Pause training if avg exceeds this
-CPU_TEMP_RESUME_THRESHOLD = 85.0  # Resume when current temp drops below this
+CPU_TEMP_RESUME_THRESHOLD = 80.0  # Resume when current temp drops below this
 
 if not resuming:
     step = 0
@@ -446,11 +446,16 @@ while True:
     avg_temp = sum(cpu_temp_history) / len(cpu_temp_history)
     if avg_temp > CPU_TEMP_PAUSE_THRESHOLD:
         print0(f"WARNING: CPU Overheating (Avg: {avg_temp:.1f}C). Pausing training...")
+        pause_temp_history = []
         while True:
             time.sleep(10)
             current_temp = get_cpu_temperature()
-            print0(f"Current CPU Temp: {current_temp:.1f}C. Waiting for < {CPU_TEMP_RESUME_THRESHOLD}C...")
-            if current_temp < CPU_TEMP_RESUME_THRESHOLD:
+            pause_temp_history.append(current_temp)
+            if len(pause_temp_history) > 5:
+                pause_temp_history.pop(0)
+            pause_avg_temp = sum(pause_temp_history) / len(pause_temp_history)
+            print0(f"CPU Temp: {current_temp:.1f}C (Avg of last {len(pause_temp_history)}: {pause_avg_temp:.1f}C). Waiting for < {CPU_TEMP_RESUME_THRESHOLD}C...")
+            if pause_avg_temp < CPU_TEMP_RESUME_THRESHOLD:
                 print0("CPU Cooled down. Resuming training...")
                 cpu_temp_history.clear()  # Reset history after cooling
                 break
