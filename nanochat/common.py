@@ -287,14 +287,14 @@ def get_cpu_temperature():
         pass
     return 0.0
 
-def thermal_pause_if_needed(cpu_temp_history, current_temp, pause_threshold=92.0, resume_threshold=80.0, history_size=20):
+def thermal_pause_if_needed(cpu_temp_history, current_temp, pause_threshold=91.0, resume_threshold=80.0, history_size=20):
     """
     Check CPU temperature and pause training if overheating.
     
     Args:
         cpu_temp_history: list storing recent temperatures (modified in place)
         current_temp: current CPU temperature reading
-        pause_threshold: pause if average exceeds this (default 92.0C)
+        pause_threshold: pause if average exceeds this (default 91.0C)
         resume_threshold: resume when avg of last 5 drops below this (default 80.0C)
         history_size: number of temperature readings to keep (default 20)
     
