@@ -306,7 +306,7 @@ def get_cpu_temperature():
         pass
     return 0.0
 
-def thermal_pause_if_needed(cpu_temp_history, current_temp, pause_threshold=91.0, resume_threshold=80.0, history_size=20):
+def thermal_pause_if_needed(cpu_temp_history, current_temp, pause_threshold=90.0, resume_threshold=80, history_size=20):
     """
     Check CPU temperature and pause training if overheating.
     
@@ -330,7 +330,7 @@ def thermal_pause_if_needed(cpu_temp_history, current_temp, pause_threshold=91.0
     
     # Check average temperature
     avg_temp = sum(cpu_temp_history) / len(cpu_temp_history)
-    if avg_temp > pause_threshold:
+    if len(cpu_temp_history) > 3 and avg_temp > pause_threshold:
         print0(f"WARNING: CPU Overheating (Avg: {avg_temp:.1f}C). Pausing training...")
         pause_temp_history = [avg_temp]
         while True:
