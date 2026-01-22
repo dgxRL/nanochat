@@ -29,9 +29,11 @@ MAX_SEQ_LENGTH=512 # default 512
 DEPTH=6 # default 6
 HEAD_DIM=64
 
+GRAD_ACCUM_STEPS=16
+
 # Calculate derived values as multiples of BASE_BATCH_SIZE
 DEVICE_BATCH_SIZE=$BASE_BATCH_SIZE
-TOTAL_BATCH_SIZE=$(($BASE_BATCH_SIZE * $MAX_SEQ_LENGTH))
+TOTAL_BATCH_SIZE=$(($BASE_BATCH_SIZE * $MAX_SEQ_LENGTH * $GRAD_ACCUM_STEPS))
 SPLIT_TOKENS=$TOTAL_BATCH_SIZE
 
 # all setup stuff
@@ -67,6 +69,7 @@ echo "Batch sizes (derived from BASE_BATCH_SIZE=$BASE_BATCH_SIZE):"
 echo "  --device-batch-size = $DEVICE_BATCH_SIZE"
 echo "  --total-batch-size = $TOTAL_BATCH_SIZE"
 echo "  --split-tokens = $SPLIT_TOKENS"
+echo "  --grad-accum-steps = $GRAD_ACCUM_STEPS"
 
 # train base model on DGX Spark
 # long goal 21400, loss: 2.727

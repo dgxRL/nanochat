@@ -75,4 +75,4 @@ conflicts = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["nanochat", "nanochat.*"]
+include = ["nanochat", "nanochat.*", "scripts*", ]
