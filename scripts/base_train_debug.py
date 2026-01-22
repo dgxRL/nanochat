@@ -22,14 +22,13 @@ import torch
 
 from nanochat.gpt import GPT, GPTConfig
 from nanochat.dataloader import tokenizing_distributed_data_loader_bos_bestfit, tokenizing_distributed_data_loader_with_state_bos_bestfit
-from nanochat.common import compute_init, compute_cleanup, print0, DummyWandb, print_banner, get_base_dir, autodetect_device_type, get_peak_flops, get_cpu_temperature, thermal_pause_if_needed
+from nanochat.common import compute_init, compute_cleanup, print0, DummyWandb, get_base_dir, autodetect_device_type, get_peak_flops, get_cpu_temperature, thermal_pause_if_needed
 from nanochat.tokenizer import get_tokenizer, get_token_bytes
 from nanochat.checkpoint_manager import save_checkpoint, load_checkpoint
 from nanochat.loss_eval import evaluate_bpb
 from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_model
-print_banner()
 
 # -----------------------------------------------------------------------------
 # CLI arguments
@@ -39,10 +38,10 @@ parser.add_argument("--run", type=str, default="dummy", help="wandb run name ('d
 # Runtime
 parser.add_argument("--device-type", type=str, default="", help="cuda|cpu|mps (empty = autodetect)")
 # Model architecture
-parser.add_argument("--depth", type=int, default=20, help="depth of the Transformer model")
+parser.add_argument("--depth", type=int, default=6, help="depth of the Transformer model")
 parser.add_argument("--aspect-ratio", type=int, default=64, help="model_dim = depth * aspect_ratio")
-parser.add_argument("--head-dim", type=int, default=128, help="target head dimension for attention")
-parser.add_argument("--max-seq-len", type=int, default=2048, help="max context length")
+parser.add_argument("--head-dim", type=int, default=64, help="target head dimension for attention")
+parser.add_argument("--max-seq-len", type=int, default=512, help="max context length")
 parser.add_argument("--window-pattern", type=str, default="SSSL", help="sliding window pattern tiled across layers: L=full, S=half context (e.g. 'SSL')")
 # Training horizon (only one used, in order of precedence)
 parser.add_argument("--num-iterations", type=int, default=-1, help="explicit number of optimization steps (-1 = disable)")
@@ -372,7 +371,7 @@ while True:
     for micro_step in range(grad_accum_steps):
         # CPU temperature monitoring: check each micro_step since each forward/backward can cause thermal throttle
         current_temp = get_cpu_temperature()
-        thermal_pause_if_needed(cpu_temp_history, current_temp, history_size=10)
+        thermal_pause_if_needed(cpu_temp_history, current_temp)
         with autocast_ctx:
             loss = model(x, y)
         train_loss = loss.detach() # for logging
