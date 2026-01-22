@@ -370,6 +370,9 @@ while True:
     synchronize()
     t0 = time.time()
     for micro_step in range(grad_accum_steps):
+        # CPU temperature monitoring: check each micro_step since each forward/backward can cause thermal throttle
+        current_temp = get_cpu_temperature()
+        thermal_pause_if_needed(cpu_temp_history, current_temp)
         with autocast_ctx:
             loss = model(x, y)
         train_loss = loss.detach() # for logging
@@ -433,9 +436,6 @@ while True:
             "train/temp": current_temp,
         }
         wandb_run.log(log_data)
-
-    # CPU temperature monitoring: pause if overheating to prevent crashes on DGX Spark
-    thermal_pause_if_needed(cpu_temp_history, current_temp)
 
     # state update
     step += 1
