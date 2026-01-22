@@ -25,8 +25,8 @@
 
 # base: batch=32, seq_len = 512, depth = 6
 BASE_BATCH_SIZE=32
-MAX_SEQ_LENGTH=2048 # default 512
-DEPTH=20 # default 6
+MAX_SEQ_LENGTH=512 # default 512
+DEPTH=6 # default 6
 HEAD_DIM=64
 
 # Calculate derived values as multiples of BASE_BATCH_SIZE
