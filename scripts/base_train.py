@@ -29,7 +29,9 @@ from nanochat.loss_eval import evaluate_bpb
 from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_model
-print_banner()
+from transformer_engine import pytorch as te
+
+# print_banner()
 
 # -----------------------------------------------------------------------------
 # CLI arguments
@@ -374,7 +376,8 @@ while True:
         current_temp = get_cpu_temperature()
         thermal_pause_if_needed(cpu_temp_history, current_temp, history_size=10)
         with autocast_ctx:
-            loss = model(x, y)
+            with te.fp8_autocast(enabled=True):
+                loss = model(x, y)
         train_loss = loss.detach() # for logging
         loss = loss / grad_accum_steps # each .backward() is a grad sum => normalize loss here
         loss.backward()
