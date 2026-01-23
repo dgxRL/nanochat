@@ -11,6 +11,10 @@ from jinja2 import Template
 import torch
 import torch.distributed as dist
 
+from transformer_engine import pytorch as te
+from transformer_engine.common.recipe import NVFP4BlockScaling
+nvfp4_recipe = NVFP4BlockScaling()  # NVFP4 quantization recipe for 4-bit training
+
 # -----------------------------------------------------------------------------
 # Prompt rendering utilities
 
@@ -148,7 +152,8 @@ def forward_model(model, input_ids):
     The last column of losses is set to nan because we don't have autoregressive targets there.
     """
     batch_size, seq_len = input_ids.size()
-    outputs = model(input_ids)
+    with te.fp8_autocast(enabled=True, fp8_recipe=nvfp4_recipe):
+        outputs = model(input_ids)
     # Roll the tensor to the left by one position to get the (autoregressive) target ids
     target_ids = torch.roll(input_ids, shifts=-1, dims=1)
     # Calculate cross entropy at all positions
