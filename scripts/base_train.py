@@ -30,7 +30,7 @@ from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_model
 from transformer_engine import pytorch as te
-from transformer_engine.common.recipe import NVFP4BlockScaling
+from transformer_engine.common.recipe import NVFP4BlockScaling, Format
 
 # print_banner()
 
@@ -280,7 +280,13 @@ else:
 
 # -----------------------------------------------------------------------------
 # Training loop
-nvfp4_recipe = NVFP4BlockScaling()  # NVFP4 quantization recipe for 4-bit training
+nvfp4_recipe = NVFP4BlockScaling(
+    # nvfp4 is currently used for forward pass weight/activations
+    fp8_format=Format.E4M3, 
+    # You can customize amax history length (similar to DelayedScaling)
+    amax_history_len=1024,
+    amax_compute_algo="max"
+)
 while True:
     last_step = step == num_iterations # loop runs num_iterations+1 times so that we can eval/save at the end
     flops_so_far = num_flops_per_token * args.total_batch_size * step

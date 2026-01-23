@@ -12,9 +12,15 @@ import torch
 import torch.distributed as dist
 
 from transformer_engine import pytorch as te
-from transformer_engine.common.recipe import NVFP4BlockScaling
-nvfp4_recipe = NVFP4BlockScaling()  # NVFP4 quantization recipe for 4-bit training
+from transformer_engine.common.recipe import NVFP4BlockScaling, Format
 
+nvfp4_recipe = NVFP4BlockScaling(
+    # nvfp4 is currently used for forward pass weight/activations
+    fp8_format=Format.E4M3, 
+    # You can customize amax history length (similar to DelayedScaling)
+    amax_history_len=1024,
+    amax_compute_algo="max"
+)
 # -----------------------------------------------------------------------------
 # Prompt rendering utilities
 
