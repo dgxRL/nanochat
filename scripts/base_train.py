@@ -30,6 +30,7 @@ from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_model
 from transformer_engine import pytorch as te
+from transformer_engine.common.recipe import NVFP4BlockScaling
 
 # print_banner()
 
@@ -279,6 +280,7 @@ else:
 
 # -----------------------------------------------------------------------------
 # Training loop
+nvfp4_recipe = NVFP4BlockScaling()  # NVFP4 quantization recipe for 4-bit training
 while True:
     last_step = step == num_iterations # loop runs num_iterations+1 times so that we can eval/save at the end
     flops_so_far = num_flops_per_token * args.total_batch_size * step
@@ -376,7 +378,7 @@ while True:
         current_temp = get_cpu_temperature()
         thermal_pause_if_needed(cpu_temp_history, current_temp, history_size=10)
         with autocast_ctx:
-            with te.fp8_autocast(enabled=True):
+            with te.fp8_autocast(enabled=True, fp8_recipe=nvfp4_recipe):
                 loss = model(x, y)
         train_loss = loss.detach() # for logging
         loss = loss / grad_accum_steps # each .backward() is a grad sum => normalize loss here
