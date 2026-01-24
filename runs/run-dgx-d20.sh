@@ -25,11 +25,11 @@
 
 # base: batch=32, seq_len = 512, depth = 6
 BASE_BATCH_SIZE=32
-MAX_SEQ_LENGTH=512 # default 512
-DEPTH=6 # default 6
-HEAD_DIM=64
+MAX_SEQ_LENGTH=1024 # default 512
+DEPTH=20 # default 6
+HEAD_DIM=128
 
-GRAD_ACCUM_STEPS=64
+GRAD_ACCUM_STEPS=1
 
 # Calculate derived values as multiples of BASE_BATCH_SIZE
 DEVICE_BATCH_SIZE=$BASE_BATCH_SIZE
@@ -88,29 +88,3 @@ python -m scripts.base_train \
     --num-iterations=5000 \
     --device-type=$DEVICE_TYPE \
     --run=$WANDB_RUN
-
-'''
-# evaluate base model
-python -m scripts.base_loss --device-batch-size=2 --split-tokens=$SPLIT_TOKENS --device-type=$DEVICE_TYPE
-python -m scripts.base_eval --max-per-task=16
-
-# midtraining with identity conversations
-curl -L -o $NANOCHAT_BASE_DIR/identity_conversations.jsonl https://karpathy-public.s3.us-west-2.amazonaws.com/identity_conversations.jsonl
-python -m scripts.mid_train \
-    --max-seq-len=$MAX_SEQ_LENGTH \
-    --device-batch-size=$DEVICE_BATCH_SIZE \
-    --total-batch-size=$TOTAL_BATCH_SIZE \
-    --eval-every=200 \
-    --eval-tokens=$SPLIT_TOKENS \
-    --num-iterations=1500 \
-    --run=$WANDB_RUN
-
-# Chat with the model over CLI
-# The model should be able to say that it is Paris.
-# It might even know that the color of the sky is blue.
-# Sometimes the model likes it if you first say Hi before you ask it questions.
-# python -m scripts.chat_cli -i mid -p "What is the capital of France?"
-
-# Chat with the model over a pretty WebUI ChatGPT style
-# python -m scripts.chat_web -i mid
-'''
