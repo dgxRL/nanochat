@@ -438,7 +438,6 @@ while True:
     
     if step % 100 == 0:
         log_data = {
-            "step": step,
             "total_training_flops": flops_so_far,
             "total_training_time": total_training_time,
             "train/loss": debiased_smooth_loss,
