@@ -31,7 +31,10 @@ from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_model
 from transformer_engine import pytorch as te
+<<<<<<< HEAD
 from transformer_engine.common.recipe import NVFP4BlockScaling, Format
+=======
+>>>>>>> 38b66c4 (Add Transformer Engine setup for NVFP4 training)
 
 # print_banner()
 
