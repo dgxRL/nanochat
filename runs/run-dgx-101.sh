@@ -85,7 +85,7 @@ python -m scripts.base_train \
     --eval-tokens=$SPLIT_TOKENS \
     --core-metric-every=-1 \
     --sample-every=100 \
-    --num-iterations=500 \
+    --num-iterations=2000 \
     --device-type=$DEVICE_TYPE \
     --run=$WANDB_RUN
 
