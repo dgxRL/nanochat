@@ -26,6 +26,8 @@ from nanochat.adamw import DistAdamW
 # Our custom Flash Attention module that automatically uses FA3 on Hopper+ and SDPA fallback elsewhere
 from nanochat.flash_attention import flash_attn
 
+#from transformer_engine.pytorch.optimizers import FusedAdam
+
 
 @dataclass
 class GPTConfig:
