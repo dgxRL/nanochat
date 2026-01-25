@@ -27,72 +27,72 @@
 
 <body>
     <h1>Nanochat GPT Model Structure</h1>
-    <p>Diagram generated from <code>runs/run-dgx-101.sh</code> configuration.</p>
+    <p>Diagram generated from <code>doc/model.txt</code> configuration.</p>
     <p>
-        <strong>Configuration:</strong> vocab=32768, layers=6, embd=384, heads=6. <br>
-        <strong>Total Parameters:</strong> ~73.5M (Embedding-heavy architecture)<br>
-        <strong>Shapes:</strong> B=32, T=512, C=384, H=6, D=64, V=32768.
+        <strong>Configuration:</strong> vocab=32768, layers=6, embd=64, heads=1. <br>
+        <strong>Total Parameters:</strong> ~10.8M (High Embedding Ratio)<br>
+        <strong>Shapes:</strong> B=32, T=512, C=64, H=1, D=64, V=32768.
     </p>
     <div class="mermaid">
         graph TD
         subgraph GPT [GPT Model]
         direction TB
-        Input["Input Indices <br /> (32, 512)"] --> WTE["wte: Embedding <br /> [~12.6M params]"]
-        WTE --> |"(32, 512, 384)"| Norm1["norm (rms_norm)"]
-        Norm1 --> |"(32, 512, 384)"| X0["x0: Initial Embedding"]
+        Input["Input Indices <br /> (32, 512)"] --> WTE["wte: Embedding <br /> [~2.1M params]"]
+        WTE --> |"(32, 512, 64)"| Norm1["norm (rms_norm)"]
+        Norm1 --> |"(32, 512, 64)"| X0["x0: Initial Embedding"]
 
-        subgraph Blocks ["Transformer Blocks (ModuleList) <br /> [~10.6M params total]"]
+        subgraph Blocks ["Transformer Blocks (ModuleList) <br /> [~0.3M params total]"]
         direction TB
         BlockLoop["Loop over layers i=0..5"]
 
-        subgraph Block [Single Block <br /> ~1.8M params]
+        subgraph Block [Single Block <br /> ~49k params]
         direction TB
-        B_Input["Input x <br /> (32, 512, 384)"]
+        B_Input["Input x <br /> (32, 512, 64)"]
 
-        subgraph Residual1 [Attention Residual <br /> ~0.6M params]
+        subgraph Residual1 [Attention Residual <br /> ~16k params]
         direction LR
         R1_Norm["norm"] --> Attn["attn: CausalSelfAttention"]
 
         subgraph CSA [CausalSelfAttention]
         direction TB
-        CSA_Input["Input <br /> (32, 512, 384)"] --> Q_Proj["c_q: Linear <br /> [~147k]"]
-        CSA_Input --> K_Proj["c_k: Linear <br /> [~147k]"]
-        CSA_Input --> V_Proj["c_v: Linear <br /> [~147k]"]
+        CSA_Input["Input <br /> (32, 512, 64)"] --> Q_Proj["c_q: Linear <br /> [~4k]"]
+        CSA_Input --> K_Proj["c_k: Linear <br /> [~4k]"]
+        CSA_Input --> V_Proj["c_v: Linear <br /> [~4k]"]
 
-        VE["Value Embeddings (Layers 1,3,5) <br /> [~37.7M params total]"] -.-> |"Gate"| V_Proj
+        VE["Value Embeddings (Layers 1,3,5) <br /> [~6.3M params total]"] -.-> |"Gate"| V_Proj
 
-        Q_Proj --> |"(32, 512, 6, 64)"| Rotary["Apply Rotary Emb"]
-        K_Proj --> |"(32, 512, 6, 64)"| Rotary
+        Q_Proj --> |"(32, 512, 1, 64)"| Rotary["Apply Rotary Emb"]
+        K_Proj --> |"(32, 512, 1, 64)"| Rotary
 
-        Rotary --> |"(32, 512, 6, 64)"| FA3["Flash Attention 3"]
-        V_Proj --> |"(32, 512, 6, 64)"| FA3
+        Rotary --> |"(32, 512, 1, 64)"| FA3["Flash Attention 3"]
+        V_Proj --> |"(32, 512, 1, 64)"| FA3
 
-        FA3 --> |"(32, 512, 6, 64)"| View["View(32, 512, 384)"]
-        View --> Out_Proj["c_proj: Linear <br /> [~147k]"]
+        FA3 --> |"(32, 512, 1, 64)"| View["View(32, 512, 64)"]
+        View --> Out_Proj["c_proj: Linear <br /> [~4k]"]
         end
 
-        Attn --> |"(32, 512, 384)"| R1_Add[+]
+        Attn --> |"(32, 512, 64)"| R1_Add[+]
         end
 
         B_Input --> R1_Add
-        R1_Add --> Mid_x["Mid x <br /> (32, 512, 384)"]
+        R1_Add --> Mid_x["Mid x <br /> (32, 512, 64)"]
 
-        subgraph Residual2 [MLP Residual <br /> ~1.2M params]
+        subgraph Residual2 [MLP Residual <br /> ~33k params]
         direction LR
         R2_Norm["norm"] --> MLP_Mod["mlp: MLP"]
 
         subgraph MLP [MLP]
         direction TB
-        MLP_Input["Input <br /> (32, 512, 384)"] --> FC["c_fc: Linear <br /> [~0.6M]"]
-        FC --> |"(32, 512, 1536)"| Act["ReLU^2"]
-        Act --> |"(32, 512, 1536)"| Proj["c_proj: Linear <br /> [~0.6M]"]
+        MLP_Input["Input <br /> (32, 512, 64)"] --> FC["c_fc: Linear <br /> [~16k]"]
+        FC --> |"(32, 512, 256)"| Act["ReLU^2"]
+        Act --> |"(32, 512, 256)"| Proj["c_proj: Linear <br /> [~16k]"]
         end
 
-        MLP_Mod --> |"(32, 512, 384)"| R2_Add[+]
+        MLP_Mod --> |"(32, 512, 64)"| R2_Add[+]
         end
 
         Mid_x --> R2_Add
-        R2_Add --> B_Output["Block Output <br /> (32, 512, 384)"]
+        R2_Add --> B_Output["Block Output <br /> (32, 512, 64)"]
         end
 
         BlockLoop --> Block
@@ -100,7 +100,7 @@
 
         X0 --> Blocks
         Blocks --> FinalNorm["norm (rms_norm)"]
-        FinalNorm --> LM_Head["lm_head: Linear <br /> [~12.6M params]"]
+        FinalNorm --> LM_Head["lm_head: Linear <br /> [~2.1M params]"]
         LM_Head --> Logits["Logits <br /> (32, 512, 32768)"]
 
         subgraph Scalars [Learnable Scalars]
