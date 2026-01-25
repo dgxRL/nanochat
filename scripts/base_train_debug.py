@@ -29,7 +29,6 @@ from nanochat.loss_eval import evaluate_bpb
 from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_model
-from torchinfo import summary
 
 # -----------------------------------------------------------------------------
 # CLI arguments
