@@ -49,7 +49,7 @@ parser.add_argument("--target-flops", type=float, default=-1.0, help="calculate 
 parser.add_argument("--target-param-data-ratio", type=int, default=4, help="calculate num_iterations to maintain data:param ratio (Chinchilla=20, -1 = disable)")
 # Optimization
 parser.add_argument("--device-batch-size", type=int, default=32, help="per-device batch size")
-parser.add_argument("--total-batch-size", type=int, default=524288, help="total batch size in tokens")
+parser.add_argument("--total-batch-size", type=int, default=65536, help="total batch size in tokens")
 parser.add_argument("--embedding-lr", type=float, default=0.3, help="learning rate for embedding parameters (Adam)")
 parser.add_argument("--unembedding-lr", type=float, default=0.004, help="learning rate for unembedding parameters (Adam)")
 parser.add_argument("--weight-decay", type=float, default=0.2, help="cautious weight decay for the Muon optimizer (for weights)")
