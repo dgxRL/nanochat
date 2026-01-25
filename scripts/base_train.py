@@ -30,7 +30,10 @@ from nanochat.loss_eval import evaluate_bpb
 from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_model
-print_banner()
+from transformer_engine import pytorch as te
+from transformer_engine.common.recipe import NVFP4BlockScaling, Format
+
+# print_banner()
 
 # -----------------------------------------------------------------------------
 # CLI arguments
@@ -164,6 +167,7 @@ with torch.device("meta"):
     # All tensors are created as meta tensors (they have shape/dtype but no data)
     model_config = GPTConfig(**model_config_kwargs)
     model = GPT(model_config)
+    print0(model)
 model.to_empty(device=device) # All tensors get storage on target device but with uninitialized (garbage) data
 model.init_weights() # All tensors get initialized
 
@@ -279,6 +283,13 @@ else:
 
 # -----------------------------------------------------------------------------
 # Training loop
+nvfp4_recipe = NVFP4BlockScaling(
+    # nvfp4 is currently used for forward pass weight/activations
+    fp8_format=Format.E4M3, 
+    # You can customize amax history length (similar to DelayedScaling)
+    amax_history_len=1024,
+    amax_compute_algo="max"
+)
 while True:
     last_step = step == num_iterations # loop runs num_iterations+1 times so that we can eval/save at the end
     flops_so_far = num_flops_per_token * args.total_batch_size * step
@@ -376,7 +387,8 @@ while True:
         current_temp = profiler.get_cpu_temp()
         thermal_pause_if_needed(cpu_temp_history, current_temp, history_size=10)
         with autocast_ctx:
-            loss = model(x, y)
+            with te.fp8_autocast(enabled=True, fp8_recipe=nvfp4_recipe):
+                loss = model(x, y)
         train_loss = loss.detach() # for logging
         loss = loss / grad_accum_steps # each .backward() is a grad sum => normalize loss here
         loss.backward()
