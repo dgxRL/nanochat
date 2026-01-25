@@ -161,7 +161,7 @@ with torch.device("meta"):
     # All tensors are created as meta tensors (they have shape/dtype but no data)
     model_config = GPTConfig(**model_config_kwargs)
     model = GPT(model_config)
-    print0(summary(model, input_size=(1, args.max_seq_len)))
+    print0(model)
 model.to_empty(device=device) # All tensors get storage on target device but with uninitialized (garbage) data
 model.init_weights() # All tensors get initialized
 
