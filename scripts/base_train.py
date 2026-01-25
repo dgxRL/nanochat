@@ -448,9 +448,7 @@ while True:
             "train/mfu": mfu,
             "train/epoch": epoch,
             "train/temp": current_temp,
-            "train/cpu_mem_mb": metrics["cpu_mem_mb"],
             "train/gpu_temp_c": metrics["gpu_temp_c"],
-            "train/gpu_mem_mb": metrics["gpu_mem_mb"],
         }
         wandb_run.log(log_data)
 
