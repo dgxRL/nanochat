@@ -439,6 +439,7 @@ while True:
     
     if step % 100 == 0:
         log_data = {
+            "step": step,
             "total_training_flops": flops_so_far,
             "total_training_time": total_training_time,
             "train/loss": debiased_smooth_loss,
@@ -449,6 +450,8 @@ while True:
             "train/epoch": epoch,
             "train/temp": current_temp,
             "train/gpu_temp_c": metrics["gpu_temp_c"],
+            "train/cpu_mem": metrics["cpu_mem_mb"],
+            "train/gpu_mem": metrics["gpu_mem_mb"],
         }
         wandb_run.log(log_data)
 
