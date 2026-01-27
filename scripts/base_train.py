@@ -213,6 +213,9 @@ total_tokens = args.total_batch_size * num_iterations
 print0(f"Total number of training tokens: {total_tokens:,}")
 print0(f"Tokens : Scaling params ratio: {args.total_batch_size * num_iterations / num_scaling_params:.2f}") # Chinchilla is ~20
 print0(f"Total training FLOPs estimate: {num_flops_per_token * total_tokens:e}")
+print0(f"Peak FLOPS: {gpu_peak_flops:e}")
+print0(f"MFU: {num_flops_per_token * total_tokens / gpu_peak_flops:.2%}")
+print0(f"Total training time estimate: {total_tokens / (args.total_batch_size * 1000):.2f} seconds")
 
 # -----------------------------------------------------------------------------
 # Initialize the Optimizer (combined MuonAdamW: Muon for matrix params, AdamW for rest)
