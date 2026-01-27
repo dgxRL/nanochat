@@ -215,8 +215,15 @@ def get_peak_flops(device_name: str) -> float:
         return 2.25e15
     if "b100" in name:
         return 1.8e15
+    # based on ChatGPT, GB100 is 62 TFLOPS BF16 (dense)
+    # FP32 ~31 TFLOPs
+    # FP16 ~62 TFLOPS
+    # BF16 ~62 TFLOPS
+    # BF16 Sparse ~124 TFLOPS
+    # FP8 ~248 TFLOPS (with FP16 accumulate)
+    # FP4 Sparse ~496 TFLOPS (with FP16 accumulate)
     if "gb10" in name:
-        return 35e12
+        return 62e12
 
     # --- NVIDIA Hopper (H100/H200/H800) ---
     if "h200" in name:
