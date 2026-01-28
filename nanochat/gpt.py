@@ -201,10 +201,11 @@ class GPT(nn.Module):
         # Use te.Linear for FP8 support when available for lm_head
         Linear = te.Linear if HAS_TE else nn.Linear
         self.lm_head = Linear(config.n_embd, padded_vocab_size, bias=False)
-        # Use te.RMSNorm for FP8 compatibility when available, with no learnable params (elementwise_affine=False)
+        # Use te.RMSNorm for FP8 compatibility when available
+        # Note: te.RMSNorm has learnable weight by default, set params_dtype for master weights
         if HAS_TE:
-            self.ln_embed = te.RMSNorm(config.n_embd, eps=1e-6, elementwise_affine=False)
-            self.ln_f = te.RMSNorm(config.n_embd, eps=1e-6, elementwise_affine=False)
+            self.ln_embed = te.RMSNorm(config.n_embd, eps=1e-6)
+            self.ln_f = te.RMSNorm(config.n_embd, eps=1e-6)
         else:
             self.ln_embed = None  # Use functional norm() if TE not available
             self.ln_f = None
