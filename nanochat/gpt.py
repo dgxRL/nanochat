@@ -298,6 +298,12 @@ class GPT(nn.Module):
         cos, sin = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim)
         self.cos, self.sin = cos, sin
 
+        # Initialize RMSNorm weights if using Transformer Engine (they have learnable scale)
+        if self.ln_embed is not None:
+            torch.nn.init.ones_(self.ln_embed.weight)
+        if self.ln_f is not None:
+            torch.nn.init.ones_(self.ln_f.weight)
+
         # Cast embeddings to FP8 (E4M3): optimizer can tolerate it and it saves memory
         if self.transformer.wte.weight.device.type == "cuda":
             self.transformer.wte.to(dtype=torch.float8_e4m3fn)
