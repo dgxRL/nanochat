@@ -384,8 +384,7 @@ while True:
         current_temp = profiler.get_cpu_temp()
         thermal_pause_if_needed(cpu_temp_history, current_temp, history_size=10)
         with autocast_ctx:
-            with te.fp8_autocast(enabled=True, fp8_recipe=nvfp4_recipe):
-                loss = model(x, y)
+            loss = model(x, y)
         train_loss = loss.detach() # for logging
         loss = loss / grad_accum_steps # each .backward() is a grad sum => normalize loss here
         loss.backward()
