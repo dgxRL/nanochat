@@ -423,11 +423,17 @@ class GPT(nn.Module):
         lm_head_params = list(self.lm_head.parameters())
         resid_params = [self.resid_lambdas]
         x0_params = [self.x0_lambdas]
+        # Collect RMSNorm params if using Transformer Engine
+        ln_params = []
+        if self.ln_embed is not None:
+            ln_params.extend(list(self.ln_embed.parameters()))
+        if self.ln_f is not None:
+            ln_params.extend(list(self.ln_f.parameters()))
         assert len(list(self.parameters())) == len(matrix_params) + len(
             embedding_params
         ) + len(lm_head_params) + len(value_embeds_params) + len(resid_params) + len(
             x0_params
-        )
+        ) + len(ln_params)
         # Create the AdamW optimizer for the embedding, lm_head, and per-layer scalars
         # Scale the LR for the AdamW parameters by ∝1/√dmodel (having tuned the LRs for 768 dim model)
         dmodel_lr_scale = (model_dim / 768) ** -0.5
@@ -445,6 +451,9 @@ class GPT(nn.Module):
             ),  # these are a lot more sensitive because they accumulate in the residual stream
             dict(params=x0_params, lr=scalar_lr),
         ]
+        # Add RMSNorm params to AdamW if using Transformer Engine
+        if ln_params:
+            adam_groups.append(dict(params=ln_params, lr=scalar_lr * 0.01))  # use conservative LR like resid_params
         adamw_kwargs = dict(
             betas=adam_betas, eps=1e-10, weight_decay=0.0
         )  # NOTE: weight decay is hardcoded to 0.0 for AdamW, only used in Muon
