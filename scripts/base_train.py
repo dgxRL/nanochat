@@ -30,8 +30,6 @@ from nanochat.loss_eval import evaluate_bpb
 from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_model
-from transformer_engine import pytorch as te
-from transformer_engine.common.recipe import NVFP4BlockScaling, Format
 
 # print_banner()
 
