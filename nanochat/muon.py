@@ -146,6 +146,8 @@ class Muon(torch.optim.Optimizer):
             shape, device, dtype = params[0].shape, params[0].device, params[0].dtype
 
             # Momentum for every individual parameter
+            # Note: keep in param dtype to match gradients (BF16 storage for optimizer states
+            # is handled by the model weights being BF16 in FP8 training mode)
             if "momentum_buffer" not in state:
                 state["momentum_buffer"] = torch.zeros(num_params, *shape, dtype=dtype, device=device)
             momentum_buffer = state["momentum_buffer"] # e.g.: (12, 768, 3072)

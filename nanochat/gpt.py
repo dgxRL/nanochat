@@ -19,6 +19,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+try:
+    import transformer_engine.pytorch as te
+    HAS_TE = True
+except ImportError:
+    te = None
+    HAS_TE = False
+
 from nanochat.common import get_dist_info, print0
 from nanochat.muon import Muon, DistMuon
 from nanochat.adamw import DistAdamW
@@ -70,13 +77,15 @@ class CausalSelfAttention(nn.Module):
         self.head_dim = self.n_embd // self.n_head
         assert self.n_embd % self.n_head == 0
         assert self.n_kv_head <= self.n_head and self.n_head % self.n_kv_head == 0
-        self.c_q = nn.Linear(self.n_embd, self.n_head * self.head_dim, bias=False)
-        self.c_k = nn.Linear(self.n_embd, self.n_kv_head * self.head_dim, bias=False)
-        self.c_v = nn.Linear(self.n_embd, self.n_kv_head * self.head_dim, bias=False)
-        self.c_proj = nn.Linear(self.n_embd, self.n_embd, bias=False)
+        # Use te.Linear for FP8 support when available
+        Linear = te.Linear if HAS_TE else nn.Linear
+        self.c_q = Linear(self.n_embd, self.n_head * self.head_dim, bias=False)
+        self.c_k = Linear(self.n_embd, self.n_kv_head * self.head_dim, bias=False)
+        self.c_v = Linear(self.n_embd, self.n_kv_head * self.head_dim, bias=False)
+        self.c_proj = Linear(self.n_embd, self.n_embd, bias=False)
         self.ve_gate_channels = 32
         self.ve_gate = (
-            nn.Linear(self.ve_gate_channels, self.n_kv_head, bias=False)
+            nn.Linear(self.ve_gate_channels, self.n_kv_head, bias=False)  # keep small gate as nn.Linear
             if has_ve(layer_idx, config.n_layer)
             else None
         )
@@ -136,8 +145,10 @@ class CausalSelfAttention(nn.Module):
 class MLP(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd, bias=False)
-        self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd, bias=False)
+        # Use te.Linear for FP8 support when available
+        Linear = te.Linear if HAS_TE else nn.Linear
+        self.c_fc = Linear(config.n_embd, 4 * config.n_embd, bias=False)
+        self.c_proj = Linear(4 * config.n_embd, config.n_embd, bias=False)
 
     def forward(self, x):
         x = self.c_fc(x)
@@ -187,7 +198,16 @@ class GPT(nn.Module):
                 ),
             }
         )
-        self.lm_head = nn.Linear(config.n_embd, padded_vocab_size, bias=False)
+        # Use te.Linear for FP8 support when available for lm_head
+        Linear = te.Linear if HAS_TE else nn.Linear
+        self.lm_head = Linear(config.n_embd, padded_vocab_size, bias=False)
+        # Use te.RMSNorm for FP8 compatibility when available, with no learnable params (elementwise_affine=False)
+        if HAS_TE:
+            self.ln_embed = te.RMSNorm(config.n_embd, eps=1e-6, elementwise_affine=False)
+            self.ln_f = te.RMSNorm(config.n_embd, eps=1e-6, elementwise_affine=False)
+        else:
+            self.ln_embed = None  # Use functional norm() if TE not available
+            self.ln_f = None
         # Per-layer learnable scalars (inspired by modded-nanogpt)
         # resid_lambdas: scales the residual stream at each layer (init 1.0 = neutral)
         # x0_lambdas: blends initial embedding back in at each layer (init 0.0 = disabled)
@@ -277,11 +297,11 @@ class GPT(nn.Module):
         cos, sin = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim)
         self.cos, self.sin = cos, sin
 
-        # Cast embeddings to bf16: optimizer can tolerate it and it saves memory
+        # Cast embeddings to FP8 (E4M3): optimizer can tolerate it and it saves memory
         if self.transformer.wte.weight.device.type == "cuda":
-            self.transformer.wte.to(dtype=torch.bfloat16)
+            self.transformer.wte.to(dtype=torch.float8_e4m3fn)
             for ve in self.value_embeds.values():
-                ve.to(dtype=torch.bfloat16)
+                ve.to(dtype=torch.float8_e4m3fn)
 
     def _precompute_rotary_embeddings(self, seq_len, head_dim, base=10000, device=None):
         # TODO: bump base theta more? e.g. 100K is more common more recently
@@ -460,13 +480,13 @@ class GPT(nn.Module):
 
         # Forward the trunk of the Transformer
         x = self.transformer.wte(idx)
-        x = norm(x)
+        x = self.ln_embed(x) if self.ln_embed is not None else norm(x)
         x0 = x  # save initial normalized embedding for x0 residual
         for i, block in enumerate(self.transformer.h):
             x = self.resid_lambdas[i] * x + self.x0_lambdas[i] * x0
             ve = self.value_embeds[str(i)](idx) if str(i) in self.value_embeds else None
             x = block(x, ve, cos_sin, self.window_sizes[i], kv_cache)
-        x = norm(x)
+        x = self.ln_f(x) if self.ln_f is not None else norm(x)
 
         # Forward the lm_head (compute logits)
         softcap = 15  # smoothly cap the logits to the range [-softcap, softcap]
