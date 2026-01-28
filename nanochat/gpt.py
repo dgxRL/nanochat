@@ -201,14 +201,11 @@ class GPT(nn.Module):
         # Use te.Linear for FP8 support when available for lm_head
         Linear = te.Linear if HAS_TE else nn.Linear
         self.lm_head = Linear(config.n_embd, padded_vocab_size, bias=False)
-        # Use te.RMSNorm for FP8 compatibility when available
-        # Note: te.RMSNorm has learnable weight by default, set params_dtype for master weights
-        if HAS_TE:
-            self.ln_embed = te.RMSNorm(config.n_embd, eps=1e-6)
-            self.ln_f = te.RMSNorm(config.n_embd, eps=1e-6)
-        else:
-            self.ln_embed = None  # Use functional norm() if TE not available
-            self.ln_f = None
+        # Note: We keep using functional norm() instead of te.RMSNorm because te.RMSNorm
+        # doesn't work well with PyTorch's meta device pattern used for model initialization.
+        # FP8 benefits still come from te.Linear layers.
+        self.ln_embed = None
+        self.ln_f = None
         # Per-layer learnable scalars (inspired by modded-nanogpt)
         # resid_lambdas: scales the residual stream at each layer (init 1.0 = neutral)
         # x0_lambdas: blends initial embedding back in at each layer (init 0.0 = disabled)
@@ -297,12 +294,6 @@ class GPT(nn.Module):
         head_dim = self.config.n_embd // self.config.n_head
         cos, sin = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim)
         self.cos, self.sin = cos, sin
-
-        # Initialize RMSNorm weights if using Transformer Engine (they have learnable scale)
-        if self.ln_embed is not None:
-            torch.nn.init.ones_(self.ln_embed.weight)
-        if self.ln_f is not None:
-            torch.nn.init.ones_(self.ln_f.weight)
 
         # Cast embeddings to FP8 (E4M3): optimizer can tolerate it and it saves memory
         if self.transformer.wte.weight.device.type == "cuda":
@@ -429,17 +420,11 @@ class GPT(nn.Module):
         lm_head_params = list(self.lm_head.parameters())
         resid_params = [self.resid_lambdas]
         x0_params = [self.x0_lambdas]
-        # Collect RMSNorm params if using Transformer Engine
-        ln_params = []
-        if self.ln_embed is not None:
-            ln_params.extend(list(self.ln_embed.parameters()))
-        if self.ln_f is not None:
-            ln_params.extend(list(self.ln_f.parameters()))
         assert len(list(self.parameters())) == len(matrix_params) + len(
             embedding_params
         ) + len(lm_head_params) + len(value_embeds_params) + len(resid_params) + len(
             x0_params
-        ) + len(ln_params)
+        )
         # Create the AdamW optimizer for the embedding, lm_head, and per-layer scalars
         # Scale the LR for the AdamW parameters by ∝1/√dmodel (having tuned the LRs for 768 dim model)
         dmodel_lr_scale = (model_dim / 768) ** -0.5
@@ -457,9 +442,6 @@ class GPT(nn.Module):
             ),  # these are a lot more sensitive because they accumulate in the residual stream
             dict(params=x0_params, lr=scalar_lr),
         ]
-        # Add RMSNorm params to AdamW if using Transformer Engine
-        if ln_params:
-            adam_groups.append(dict(params=ln_params, lr=scalar_lr * 0.01))  # use conservative LR like resid_params
         adamw_kwargs = dict(
             betas=adam_betas, eps=1e-10, weight_decay=0.0
         )  # NOTE: weight decay is hardcoded to 0.0 for AdamW, only used in Muon
