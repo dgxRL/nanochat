@@ -287,13 +287,6 @@ else:
 
 # -----------------------------------------------------------------------------
 # Training loop
-nvfp4_recipe = NVFP4BlockScaling(
-    # nvfp4 is currently used for forward pass weight/activations
-    fp8_format=Format.E4M3, 
-    # You can customize amax history length (similar to DelayedScaling)
-    amax_history_len=1024,
-    amax_compute_algo="max"
-)
 while True:
     last_step = step == num_iterations # loop runs num_iterations+1 times so that we can eval/save at the end
     flops_so_far = num_flops_per_token * args.total_batch_size * step
