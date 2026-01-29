@@ -259,7 +259,7 @@ def get_peak_flops(device_name: str) -> float:
     logger.warning(f"Peak flops undefined for: {device_name}, MFU will show as 0%")
     return float('inf')
 
-def thermal_pause_if_needed(cpu_temp_history, current_temp, pause_threshold=90.0, resume_threshold=80, history_size=20):
+def thermal_pause_if_needed(cpu_temp_history, current_temp, pause_threshold=87.0, resume_threshold=80, history_size=20):
     """
     Check CPU temperature and pause training if overheating.
     
