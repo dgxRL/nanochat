@@ -29,9 +29,9 @@ MAX_SEQ_LENGTH=512 # default 512
 DEPTH=6 # default 6
 HEAD_DIM=64
 
-GRAD_ACCUM_STEPS=16
+GRAD_ACCUM_STEPS=32
 
-ITERATIONS=20000
+ITERATIONS=10000
 
 # Calculate derived values as multiples of BASE_BATCH_SIZE
 DEVICE_BATCH_SIZE=$BASE_BATCH_SIZE
@@ -53,9 +53,9 @@ fi
 uv sync --extra gpu
 
 # train tokenizer on ~2B characters
-# python -m nanochat.dataset -n 8
-# python -m scripts.tok_train --max-chars=2000000000 # b64 -> 163M => max b8x64 = b512
-# python -m scripts.tok_eval
+#python -m nanochat.dataset -n 32
+#python -m scripts.tok_train --max-chars=6_000_000_000 # b64 -> 163M => max b8x64 = b512
+#python -m scripts.tok_eval
 
 # Detect device type
 CUDA_AVAILABLE=$(python -c "import torch; print(int(torch.cuda.is_available()))")
