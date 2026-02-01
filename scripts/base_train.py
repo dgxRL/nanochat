@@ -30,7 +30,10 @@ from nanochat.loss_eval import evaluate_bpb
 from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_core
+<<<<<<< HEAD
 
+=======
+>>>>>>> b5d52dd (add more info for wandb log)
 
 # -----------------------------------------------------------------------------
 # CLI arguments
