@@ -31,8 +31,6 @@ from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_core
 
-
-
 # -----------------------------------------------------------------------------
 # CLI arguments
 parser = argparse.ArgumentParser(description="Pretrain base model")
@@ -143,7 +141,7 @@ print0(f"Total batch size {args.total_batch_size:,} => gradient accumulation ste
 
 wandb_run.config.update( {"key_indexes": {
     "GPU": gpu_device_name,
-    "Peak FLOPS (BF16)": gpu_peak_flops,
+    "Peak FLOPS (BF16)": f"{gpu_peak_flops:.2e}",
     "Vocab Size": vocab_size,
     "num_layers": num_layers,
     "model_dim": model_dim,
@@ -184,7 +182,6 @@ with torch.device("meta"):
     model_config = GPTConfig(**model_config_kwargs)
     model = GPT(model_config)
     print0(model)
-    wandb_run.config.update( {"model_architecture": model})
 model.to_empty(device=device) # All tensors get storage on target device but with uninitialized (garbage) data
 model.init_weights() # All tensors get initialized
 
@@ -241,8 +238,8 @@ wandb_run.config.update({
         "total_tokens": total_tokens,
         "num_iterations": num_iterations,
         "num_scaling_params": num_scaling_params,
-        "num_flops_per_token": num_flops_per_token,
-        "gpu_peak_flops": gpu_peak_flops,
+        "num_flops_per_token": f"{num_flops_per_token:.2e}",
+        "gpu_peak_flops": f"{gpu_peak_flops:.2e}",
         "total_training_time_estimate in seconds": f"{num_flops_per_token * total_tokens / gpu_peak_flops:.2f}",
     }
 })
