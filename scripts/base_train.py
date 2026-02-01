@@ -31,6 +31,8 @@ from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_core
 
+
+
 # -----------------------------------------------------------------------------
 # CLI arguments
 parser = argparse.ArgumentParser(description="Pretrain base model")
@@ -182,6 +184,7 @@ with torch.device("meta"):
     model_config = GPTConfig(**model_config_kwargs)
     model = GPT(model_config)
     print0(model)
+    wandb_run.config.update( {"model_architecture": model})
 model.to_empty(device=device) # All tensors get storage on target device but with uninitialized (garbage) data
 model.init_weights() # All tensors get initialized
 
@@ -240,7 +243,7 @@ wandb_run.config.update({
         "num_scaling_params": num_scaling_params,
         "num_flops_per_token": num_flops_per_token,
         "gpu_peak_flops": gpu_peak_flops,
-        "total_training_time_estimate in seconds": num_flops_per_token * total_tokens / gpu_peak_flops,
+        "total_training_time_estimate in seconds": f"{num_flops_per_token * total_tokens / gpu_peak_flops:.2f}",
     }
 })
 
