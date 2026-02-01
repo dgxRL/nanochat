@@ -30,8 +30,6 @@ from nanochat.loss_eval import evaluate_bpb
 from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_core
-print_banner()
-
 
 # -----------------------------------------------------------------------------
 # CLI arguments
@@ -143,7 +141,7 @@ print0(f"Tokens / micro-batch / rank: {args.device_batch_size} x {args.max_seq_l
 print0(f"Tokens / micro-batch: {world_tokens_per_fwdbwd:,}")
 print0(f"Total batch size {args.total_batch_size:,} => gradient accumulation steps: {grad_accum_steps}")
 
-wandb_run.update( {"key_indexes": {
+wandb_run.config.update( {"key_indexes": {
     "GPU": gpu_device_name,
     "Peak FLOPS (BF16)": gpu_peak_flops,
     "Vocab Size": vocab_size,
@@ -236,7 +234,7 @@ print0(f"Total training FLOPs estimate: {num_flops_per_token * total_tokens:e}")
 print0(f"Peak FLOPS: {gpu_peak_flops:e}")
 print0(f"Total training time estimate: {num_flops_per_token * total_tokens / gpu_peak_flops:.2f} seconds")
 
-wandb_run.update({
+wandb_run.config.update({
     "training":{
         "Parameter counts": param_counts,
         "total_tokens": total_tokens,
