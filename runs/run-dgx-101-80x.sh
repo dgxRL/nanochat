@@ -23,13 +23,13 @@
 
 # b32_d6_H128 -> 21.8GB, 9 minutes
 
-# base: batch=32, seq_len = 512, depth = 6
+# base: batch=32, seq_len = 512, depth = 6, Grad_accum_steps = 16 (cpu in quite mode)
 BASE_BATCH_SIZE=32
 MAX_SEQ_LENGTH=512 # default 512
 DEPTH=6 # default 6
 HEAD_DIM=64
 
-GRAD_ACCUM_STEPS=32
+GRAD_ACCUM_STEPS=16
 
 ITERATIONS=10000
 
