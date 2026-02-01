@@ -182,7 +182,6 @@ with torch.device("meta"):
     model_config = GPTConfig(**model_config_kwargs)
     model = GPT(model_config)
     print0(model)
-    wandb_run.config.update( {"model_architecture": model})
 model.to_empty(device=device) # All tensors get storage on target device but with uninitialized (garbage) data
 model.init_weights() # All tensors get initialized
 
