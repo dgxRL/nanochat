@@ -86,6 +86,8 @@ master_process = ddp_rank == 0 # this process will do logging, checkpointing etc
 # wandb logging init
 use_dummy_wandb = args.run == "dummy" or not master_process
 wandb_run = DummyWandb() if use_dummy_wandb else wandb.init(project="nanochat", name=args.run, config=user_config)
+wandb_run.update({ 
+    "args": user_config})
 
 autocast_ctx = torch.amp.autocast(device_type=device_type, dtype=torch.bfloat16) if device_type == "cuda" else nullcontext()
 synchronize = torch.cuda.synchronize if device_type == "cuda" else lambda: None
@@ -140,6 +142,23 @@ grad_accum_steps = args.total_batch_size // world_tokens_per_fwdbwd
 print0(f"Tokens / micro-batch / rank: {args.device_batch_size} x {args.max_seq_len} = {tokens_per_fwdbwd:,}")
 print0(f"Tokens / micro-batch: {world_tokens_per_fwdbwd:,}")
 print0(f"Total batch size {args.total_batch_size:,} => gradient accumulation steps: {grad_accum_steps}")
+
+wandb_run.update( {"key_indexes": {
+    "GPU": gpu_device_name,
+    "Peak FLOPS (BF16)": gpu_peak_flops,
+    "Vocab Size": vocab_size,
+    "num_layers": num_layers,
+    "model_dim": model_dim,
+    "num_heads": num_heads,
+    "head_dim": head_dim,
+    "num_kv_heads": num_kv_heads,
+    "max_seq_len": args.max_seq_len,
+    "Tokens / micro-batch / rank": tokens_per_fwdbwd,
+    "Tokens / micro-batch": world_tokens_per_fwdbwd,
+    "Total batch size": args.total_batch_size,
+    "Gradient accumulation steps": grad_accum_steps,
+    }}
+)
 
 # Batch size scaling for learning rates (hyperparameters were tuned at reference batch size 2^19)
 batch_lr_scale = 1.0
@@ -216,6 +235,18 @@ print0(f"Tokens : Scaling params ratio: {args.total_batch_size * num_iterations 
 print0(f"Total training FLOPs estimate: {num_flops_per_token * total_tokens:e}")
 print0(f"Peak FLOPS: {gpu_peak_flops:e}")
 print0(f"Total training time estimate: {num_flops_per_token * total_tokens / gpu_peak_flops:.2f} seconds")
+
+wandb_run.update({
+    "training":{
+        "Parameter counts": param_counts,
+        "total_tokens": total_tokens,
+        "num_iterations": num_iterations,
+        "num_scaling_params": num_scaling_params,
+        "num_flops_per_token": num_flops_per_token,
+        "gpu_peak_flops": gpu_peak_flops,
+        "total_training_time_estimate in seconds": num_flops_per_token * total_tokens / gpu_peak_flops,
+    }
+})
 
 # -----------------------------------------------------------------------------
 # Initialize the Optimizer (combined MuonAdamW: Muon for matrix params, AdamW for rest)
