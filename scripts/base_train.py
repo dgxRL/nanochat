@@ -30,12 +30,6 @@ from nanochat.loss_eval import evaluate_bpb
 from nanochat.engine import Engine
 from nanochat.flash_attention import HAS_FA3
 from scripts.base_eval import evaluate_core
-<<<<<<< HEAD
-
-
-=======
->>>>>>> b5d52dd (add more info for wandb log)
-
 
 # -----------------------------------------------------------------------------
 # CLI arguments
@@ -188,6 +182,7 @@ with torch.device("meta"):
     model_config = GPTConfig(**model_config_kwargs)
     model = GPT(model_config)
     print0(model)
+    wandb_run.config.update( {"model_architecture": model})
 model.to_empty(device=device) # All tensors get storage on target device but with uninitialized (garbage) data
 model.init_weights() # All tensors get initialized
 
