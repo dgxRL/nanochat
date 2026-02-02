@@ -314,7 +314,7 @@ else:
 
 # -----------------------------------------------------------------------------
 # Training loop
-middle_iter = num_iterations // 2
+double_call_steps = num_iterations // 4
 while True:
     last_step = step == num_iterations # loop runs num_iterations+1 times so that we can eval/save at the end
     flops_so_far = num_flops_per_token * args.total_batch_size * step
@@ -433,7 +433,7 @@ while True:
     t1 = time.time()
     dt = t1 - t0
     # -------------------------------------------------------------------------
-    if step == middle_iter:
+    if step % double_call_steps == double_call_steps - 1:
         print(f"middle way, double layers...")
         model.double_layers()
     # logging (CPU action only)
