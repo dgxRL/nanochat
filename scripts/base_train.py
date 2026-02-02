@@ -314,6 +314,7 @@ else:
 
 # -----------------------------------------------------------------------------
 # Training loop
+middle_iter = num_iterations // 2
 while True:
     last_step = step == num_iterations # loop runs num_iterations+1 times so that we can eval/save at the end
     flops_so_far = num_flops_per_token * args.total_batch_size * step
@@ -432,7 +433,9 @@ while True:
     t1 = time.time()
     dt = t1 - t0
     # -------------------------------------------------------------------------
-
+    if step == micro_step:
+        print(f"middle way, double layers...")
+        model.double_layers()
     # logging (CPU action only)
     ema_beta = 0.9 # EMA decay factor for some smoothing just for nicer logging
     smooth_train_loss = ema_beta * smooth_train_loss + (1 - ema_beta) * train_loss_f # EMA the training loss

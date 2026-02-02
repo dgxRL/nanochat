@@ -280,6 +280,36 @@ class GPT(nn.Module):
     def get_device(self):
         return self.transformer.wte.weight.device
 
+    def double_layers(self):
+        """
+        Double the number of layers by cloning existing blocks and appending them.
+        Useful for progressive growth (e.g. initializing depth 12 from depth 6).
+        """
+        import copy
+
+        # 1. Clone existing blocks
+        # We perform deepcopy to get independent weights
+        new_blocks = [copy.deepcopy(block) for block in self.transformer.h]
+
+        # 2. Append new blocks to ModuleList
+        # This registers them properly
+        start_idx = len(self.transformer.h)
+        self.transformer.h.extend(new_blocks)
+
+        # 3. Update config
+        self.config.n_layer = len(self.transformer.h)
+
+        # 4. Fix layer indices in the new blocks
+        for i, block in enumerate(self.transformer.h[start_idx:], start=start_idx):
+            # If Block/Attn stores layer_idx, we must update it
+            if hasattr(block.attn, 'layer_idx'):
+                block.attn.layer_idx = i
+
+        # 5. Re-compute window sizes for the new depth
+        self.window_sizes = self._compute_window_sizes(self.config)
+
+        print0(f"Doubled layers from {start_idx} to {self.config.n_layer}")
+
     def estimate_flops(self):
         """
         Return the estimated FLOPs per token for the model (forward + backward).
