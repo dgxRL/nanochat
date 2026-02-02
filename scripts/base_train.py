@@ -433,7 +433,7 @@ while True:
     t1 = time.time()
     dt = t1 - t0
     # -------------------------------------------------------------------------
-    if step == micro_step:
+    if step == middle_iter:
         print(f"middle way, double layers...")
         model.double_layers()
     # logging (CPU action only)
