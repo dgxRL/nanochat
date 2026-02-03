@@ -1,0 +1,101 @@
+Vocab size: 32,768
+num_layers: 6
+model_dim: 384 (base: 384, nudge: +0)
+num_heads: 6
+head_dim: 64
+num_kv_heads: 6
+Tokens / micro-batch / rank: 32 x 512 = 16,384
+Tokens / micro-batch: 16,384
+Total batch size 65,536 => gradient accumulation steps: 4
+Scaling LRs by 0.3536 for batch size 65,536 (reference: 524,288)
+Scaling weight decay from 0.200000 to 0.800000 for depth 6
+GPT(
+  (transformer): ModuleDict(
+    (wte): Embedding(32768, 384)
+    (h): ModuleList(
+      (0): Block(
+        (attn): CausalSelfAttention(
+          (c_q): Linear(in_features=384, out_features=384, bias=False)
+          (c_k): Linear(in_features=384, out_features=384, bias=False)
+          (c_v): Linear(in_features=384, out_features=384, bias=False)
+          (c_proj): Linear(in_features=384, out_features=384, bias=False)
+        )
+        (mlp): MLP(
+          (c_fc): Linear(in_features=384, out_features=1536, bias=False)
+          (c_proj): Linear(in_features=1536, out_features=384, bias=False)
+        )
+      )
+      (1): Block(
+        (attn): CausalSelfAttention(
+          (c_q): Linear(in_features=384, out_features=384, bias=False)
+          (c_k): Linear(in_features=384, out_features=384, bias=False)
+          (c_v): Linear(in_features=384, out_features=384, bias=False)
+          (c_proj): Linear(in_features=384, out_features=384, bias=False)
+          (ve_gate): Linear(in_features=32, out_features=6, bias=False)
+        )
+        (mlp): MLP(
+          (c_fc): Linear(in_features=384, out_features=1536, bias=False)
+          (c_proj): Linear(in_features=1536, out_features=384, bias=False)
+        )
+      )
+      (2): Block(
+        (attn): CausalSelfAttention(
+          (c_q): Linear(in_features=384, out_features=384, bias=False)
+          (c_k): Linear(in_features=384, out_features=384, bias=False)
+          (c_v): Linear(in_features=384, out_features=384, bias=False)
+          (c_proj): Linear(in_features=384, out_features=384, bias=False)
+        )
+        (mlp): MLP(
+          (c_fc): Linear(in_features=384, out_features=1536, bias=False)
+          (c_proj): Linear(in_features=1536, out_features=384, bias=False)
+        )
+      )
+      (3): Block(
+        (attn): CausalSelfAttention(
+          (c_q): Linear(in_features=384, out_features=384, bias=False)
+          (c_k): Linear(in_features=384, out_features=384, bias=False)
+          (c_v): Linear(in_features=384, out_features=384, bias=False)
+          (c_proj): Linear(in_features=384, out_features=384, bias=False)
+          (ve_gate): Linear(in_features=32, out_features=6, bias=False)
+        )
+        (mlp): MLP(
+          (c_fc): Linear(in_features=384, out_features=1536, bias=False)
+          (c_proj): Linear(in_features=1536, out_features=384, bias=False)
+        )
+      )
+      (4): Block(
+        (attn): CausalSelfAttention(
+          (c_q): Linear(in_features=384, out_features=384, bias=False)
+          (c_k): Linear(in_features=384, out_features=384, bias=False)
+          (c_v): Linear(in_features=384, out_features=384, bias=False)
+          (c_proj): Linear(in_features=384, out_features=384, bias=False)
+        )
+        (mlp): MLP(
+          (c_fc): Linear(in_features=384, out_features=1536, bias=False)
+          (c_proj): Linear(in_features=1536, out_features=384, bias=False)
+        )
+      )
+      (5): Block(
+        (attn): CausalSelfAttention(
+          (c_q): Linear(in_features=384, out_features=384, bias=False)
+          (c_k): Linear(in_features=384, out_features=384, bias=False)
+          (c_v): Linear(in_features=384, out_features=384, bias=False)
+          (c_proj): Linear(in_features=384, out_features=384, bias=False)
+          (ve_gate): Linear(in_features=32, out_features=6, bias=False)
+        )
+        (mlp): MLP(
+          (c_fc): Linear(in_features=384, out_features=1536, bias=False)
+          (c_proj): Linear(in_features=1536, out_features=384, bias=False)
+        )
+      )
+    )
+  )
+  (lm_head): Linear(in_features=384, out_features=32768, bias=False)
+  (value_embeds): ModuleDict(
+    (1): Embedding(32768, 384)
+    (3): Embedding(32768, 384)
+    (5): Embedding(32768, 384)
+  )
+)
+Number of parameters: 73,531,980 (scaling: 73,531,980)
+Estimated FLOPs per token: 1.486391e+08
