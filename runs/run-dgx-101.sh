@@ -30,6 +30,7 @@ DEPTH=6 # default 6
 HEAD_DIM=64
 
 GRAD_ACCUM_STEPS=4
+ITERATIONS=5_000
 
 # Calculate derived values as multiples of BASE_BATCH_SIZE
 DEVICE_BATCH_SIZE=$BASE_BATCH_SIZE
@@ -85,7 +86,7 @@ python -m scripts.base_train \
     --eval-tokens=$SPLIT_TOKENS \
     --core-metric-every=-1 \
     --sample-every=100 \
-    --num-iterations=2000 \
+    --num-iterations=$ITERATIONS \
     --device-type=$DEVICE_TYPE \
     --run=$WANDB_RUN
 
