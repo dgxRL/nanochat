@@ -9,6 +9,7 @@ import urllib.request
 import torch
 import torch.distributed as dist
 from filelock import FileLock
+from nanochat.profiler import get_cpu_temperature
 
 class ColoredFormatter(logging.Formatter):
     """Custom formatter that adds colors to log messages."""
@@ -206,7 +207,6 @@ class DummyWandb:
 # and PR: https://github.com/karpathy/nanochat/pull/147
 def get_peak_flops(device_name: str) -> float:
     name = device_name.lower()
-
     # Table order matters: more specific patterns first.
     _PEAK_FLOPS_TABLE = (
         # NVIDIA Blackwell
@@ -214,6 +214,7 @@ def get_peak_flops(device_name: str) -> float:
         (["grace blackwell"], 2.5e15),
         (["b200"], 2.25e15),
         (["b100"], 1.8e15),
+        (["gb10"], 35e12),
         # NVIDIA Hopper
         (["h200", "nvl"], 836e12),
         (["h200", "pcie"], 836e12),
@@ -248,6 +249,7 @@ def get_peak_flops(device_name: str) -> float:
     for patterns, flops in _PEAK_FLOPS_TABLE:
         if all(p in name for p in patterns):
             return flops
+
     if "data center gpu max 1550" in name:
         # Ponte Vecchio (PVC) - dynamic based on compute units
         max_comp_units = torch.xpu.get_device_properties("xpu").max_compute_units
@@ -256,3 +258,44 @@ def get_peak_flops(device_name: str) -> float:
     # Unknown GPU - return inf so MFU shows as 0% rather than a wrong guess
     logger.warning(f"Peak flops undefined for: {device_name}, MFU will show as 0%")
     return float('inf')
+
+def thermal_pause_if_needed(cpu_temp_history, current_temp, pause_threshold=87.0, resume_threshold=80, history_size=20):
+    """
+    Check CPU temperature and pause training if overheating.
+    
+    Args:
+        cpu_temp_history: list storing recent temperatures (modified in place)
+        current_temp: current CPU temperature reading
+        pause_threshold: pause if average exceeds this (default 91.0C)
+        resume_threshold: resume when avg of last 5 drops below this (default 80.0C)
+        history_size: number of temperature readings to keep (default 20)
+    
+    Returns:
+        True if training was paused and resumed, False otherwise
+    """
+    import time
+    
+    # Add current temp to tail of history
+    cpu_temp_history.append(current_temp)
+    # If over history_size entries, remove oldest from head
+    if len(cpu_temp_history) > history_size:
+        cpu_temp_history.pop(0)
+    
+    # Check average temperature
+    avg_temp = sum(cpu_temp_history) / len(cpu_temp_history)
+    if len(cpu_temp_history) > 3 and avg_temp > pause_threshold:
+        print0(f"WARNING: CPU Overheating (Avg: {avg_temp:.1f}C). Pausing training...")
+        pause_temp_history = [avg_temp]
+        while True:
+            time.sleep(10)
+            current_temp = get_cpu_temperature()
+            pause_temp_history.append(current_temp)
+            if len(pause_temp_history) > 5:
+                pause_temp_history.pop(0)
+            pause_avg_temp = sum(pause_temp_history) / len(pause_temp_history)
+            print0(f"CPU Temp: {current_temp:.1f}C (Avg of last {len(pause_temp_history)}: {pause_avg_temp:.1f}C). Waiting for < {resume_threshold}C...")
+            if len(pause_temp_history) > 2 and pause_avg_temp < resume_threshold:
+                print0("CPU Cooled down. Resuming training...")
+                cpu_temp_history.clear()  # Reset history after cooling
+                return True
+    return False

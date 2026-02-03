@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nanochat GPT Model Structure (Run 101)</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'default', flowchart: { curve: 'basis' } });
+    </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 1400px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .metadata {
+            background-color: #e3f2fd;
+            border: 1px solid #bbdefb;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Nanochat GPT Model Structure</h1>
+        <div class="metadata">
+            <strong>Configuration (Run 101):</strong><br>
+            • Vocab Size: 32,768<br>
+            • Layers: 6<br>
+            • Model Dimension (d_model): 384<br>
+            • Heads: 1 (Head Dim: 384)<br>
+            • MLP Hidden Dimension: 1536 (4x)<br>
+            • <strong>Total Parameters: 73,531,500</strong>
+        </div>
+
+        <div class="mermaid">
+            graph TD
+            %% Nodes
+            Input[("Input Indices<br>(B=32, T=512)")]
+            
+            subgraph Embedding_Layer ["Embedding Stage"]
+                WTE["wte: Embedding<br>(32768, 384)<br>[~12.6M params]"]
+                NormPre["Norm (RMSNorm)<br>[No params]"]
+                X0_Node["x0: Save Initial State"]
+            end
+
+            subgraph Transformer ["Transformer Body (6 Layers)"]
+                direction TB
+                
+                subgraph Loop_Logic ["Per-Layer Residual Logic"]
+                    Scalars["Apply Learnable Scalars:<br>resid_lambdas[i] * x + x0_lambdas[i] * x0"]
+                end
+
+                subgraph Block_Structure ["Transformer Block (Repeated 6x)"]
+                    direction TB
+                    
+                    subgraph Attention_Mechanism ["Attention Mechanism"]
+                        Norm1["Norm (RMSNorm)"]
+                        
+                        subgraph QKV_Proj ["Projections"]
+                            CQ["c_q: Linear<br>(384->384)<br>[~147k]"]
+                            CK["c_k: Linear<br>(384->384)<br>[~147k]"]
+                            CV["c_v: Linear<br>(384->384)<br>[~147k]"]
+                        end
+                        
+                        VE_Retrieve[/"Retrieve Value Embedding<br>(Layers 1, 3, 5 only)"/]
+                        VE_Gate["ve_gate: Linear (32->1)<br>[32 params]<br>(Layers 1, 3, 5 only)"]
+                        VE_Mix["Mix VE into V:<br>v = v + gate * ve"]
+                        
+                        Rotary["Apply Rotary Embeddings<br>(RoPE)"]
+                        FA3["Flash Attention 3 / SDPA<br>(Causal, Windowed)"]
+                        CProj["c_proj: Linear<br>(384->384)<br>[~147k]"]
+                    end
+                    
+                    subgraph MLP_Mechanism ["MLP Mechanism"]
+                        Norm2["Norm (RMSNorm)"]
+                        CFC["c_fc: Linear<br>(384->1536)<br>[~590k]"]
+                        Act["Activation: ReLU²"]
+                        CProjMLP["c_proj: Linear<br>(1536->384)<br>[~590k]"]
+                    end
+                    
+                    %% Connections inside Block
+                    Norm1 --> CQ & CK & CV
+                    VE_Retrieve -.-> |"If Layer 1,3,5"| VE_Gate
+                    Norm1 -.-> |"First 32 channels"| VE_Gate
+                    VE_Gate --> VE_Mix
+                    CV --> VE_Mix
+                    VE_Retrieve -.-> |"If Layer 1,3,5"| VE_Mix
+                    
+                    CQ --> Rotary
+                    CK --> Rotary
+                    Rotary --> FA3
+                    VE_Mix --> FA3
+                    FA3 --> CProj
+                    
+                    Norm2 --> CFC --> Act --> CProjMLP
+                end
+                
+                %% Connecting Residuals
+                Add1((+))
+                Add2((+))
+            end
+
+            subgraph Output_Layer ["Output Stage"]
+                NormFinal["Norm (RMSNorm)"]
+                LMHead["lm_head: Linear<br>(384->32768)<br>[~12.6M params]"]
+                Logits[/"Logits<br>(B, T, 32768)"/]
+            end
+            
+            subgraph Value_Embeddings_Store ["Value Embeddings Storage"]
+                VE_Params["Value Embeddings (Layers 1, 3, 5)<br>3 x Embedding(32768, 384)<br>[~37.7M params total]"]
+            end
+
+            %% Main Flow
+            Input --> WTE
+            WTE --> NormPre --> X0_Node
+            X0_Node --> Scalars
+            Scalars --> Norm1
+            Scalars --> |"Residual"| Add1
+            
+            CProj --> Add1
+            Add1 --> Norm2
+            Add1 --> |"Residual"| Add2
+            
+            CProjMLP --> Add2
+            Add2 --> |"Next Layer / Output"| NormFinal
+            
+            VE_Params -.-> VE_Retrieve
+
+            NormFinal --> LMHead --> Logits
+
+            %% Styling
+            classDef default fill:#fff,stroke:#333,stroke-width:1px;
+            classDef embedding fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
+            classDef mechanism fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
+            classDef storage fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
+            classDef plain fill:#fff,stroke:#999,stroke-width:1px,stroke-dasharray: 5 5;
+
+            class WTE,LMHead embedding;
+            class VE_Params storage;
+            class Attention_Mechanism,MLP_Mechanism mechanism;
+            class Input,Logits,X0_Node plain;
+        </div>
+    </div>
+</body>
+</html>
