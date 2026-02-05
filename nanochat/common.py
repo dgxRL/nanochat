@@ -193,14 +193,21 @@ def compute_cleanup():
     if is_ddp_initialized():
         dist.destroy_process_group()
 
+class DummyConfig(dict):
+    def update(self, data=None, **kwargs):
+        pass
+
 class DummyWandb:
     """Useful if we wish to not use wandb but have all the same signatures"""
     def __init__(self):
+        self.config = DummyConfig()
         pass
     def log(self, *args, **kwargs):
         pass
     def finish(self):
         pass
+
+    
 
 # hardcoded BF16 peak flops for various GPUs
 # inspired by torchtitan: https://github.com/pytorch/torchtitan/blob/main/torchtitan/tools/utils.py
