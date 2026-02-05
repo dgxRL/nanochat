@@ -25,9 +25,10 @@
 
 # base: batch=32, seq_len = 512, depth = 6
 BASE_BATCH_SIZE=32
-MAX_SEQ_LENGTH=512 # default 512
-DEPTH=6 # default 6
+MAX_SEQ_LENGTH=1024 # default 512
+DEPTH=18 # default 6
 HEAD_DIM=64
+ASPECT_RATIO=64 # default 64
 
 GRAD_ACCUM_STEPS=4
 ITERATIONS=5_000
@@ -77,6 +78,8 @@ echo "  --grad-accum-steps = $GRAD_ACCUM_STEPS"
 # python -m scripts.base_train -- --depth=20 --run=$WANDB_RUN
 python -m scripts.base_train \
     --depth=$DEPTH \
+    --fp8 \
+    --aspect-ratio=$ASPECT_RATIO \
     --head-dim=$HEAD_DIM \
     --window-pattern=L \
     --max-seq-len=$MAX_SEQ_LENGTH \
