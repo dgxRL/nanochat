@@ -75,10 +75,14 @@ echo "  --grad-accum-steps = $GRAD_ACCUM_STEPS"
 # SFT (~10 minutes on my MacBook Pro M3 Max)
 curl -L -o $NANOCHAT_BASE_DIR/identity_conversations.jsonl https://karpathy-public.s3.us-west-2.amazonaws.com/identity_conversations.jsonl
 python -m scripts.chat_sft \
-    --max-seq-len=512 \
-    --device-batch-size=32 \
+    --model-tag="d6" \
+    --model-step=$ITERATIONS \
+    --max-seq-len=$MAX_SEQ_LENGTH \
+    --device-batch-size=$BASE_BATCH_SIZE \
     --total-batch-size=16384 \
     --eval-every=200 \
     --eval-tokens=524288 \
     --num-iterations=1500 \
     --run=$WANDB_RUN
+
+python -m scritps.chat_eval -i sft
