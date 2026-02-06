@@ -72,23 +72,13 @@ echo "  --total-batch-size = $TOTAL_BATCH_SIZE"
 echo "  --split-tokens = $SPLIT_TOKENS"
 echo "  --grad-accum-steps = $GRAD_ACCUM_STEPS"
 
-# train base model on DGX Spark
-# long goal 21400, loss: 2.727
-# python -m scripts.base_train -- --depth=20 --run=$WANDB_RUN
-python -m scripts.base_train \
-    --depth=$DEPTH \
-    --fp8 \
-    --aspect-ratio=$ASPECT_RATIO \
-    --head-dim=$HEAD_DIM \
-    --window-pattern=L \
-    --max-seq-len=$MAX_SEQ_LENGTH \
-    --device-batch-size=$DEVICE_BATCH_SIZE \
-    --total-batch-size=$TOTAL_BATCH_SIZE \
-    --eval-every=100 \
-    --eval-tokens=$SPLIT_TOKENS \
-    --core-metric-every=-1 \
-    --sample-every=100 \
-    --num-iterations=$ITERATIONS \
-    --device-type=$DEVICE_TYPE \
+# SFT (~10 minutes on my MacBook Pro M3 Max)
+curl -L -o $NANOCHAT_BASE_DIR/identity_conversations.jsonl https://karpathy-public.s3.us-west-2.amazonaws.com/identity_conversations.jsonl
+python -m scripts.chat_sft \
+    --max-seq-len=512 \
+    --device-batch-size=32 \
+    --total-batch-size=16384 \
+    --eval-every=200 \
+    --eval-tokens=524288 \
+    --num-iterations=1500 \
     --run=$WANDB_RUN
-

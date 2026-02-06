@@ -25,8 +25,8 @@
 
 # base: batch=32, seq_len = 512, depth = 6
 BASE_BATCH_SIZE=32
-MAX_SEQ_LENGTH=512 # default 512
-DEPTH=6 # default 6
+MAX_SEQ_LENGTH=1024 # default 512
+DEPTH=18 # default 6
 HEAD_DIM=64
 ASPECT_RATIO=64 # default 64
 
@@ -49,7 +49,7 @@ if [ -z "$WANDB_RUN" ]; then
 fi
 
 # Install GPU dependencies with timeout handling
-# uv sync --extra gpu
+uv sync --extra gpu
 
 # train tokenizer on ~2B characters
 # python -m nanochat.dataset -n 8
@@ -75,20 +75,6 @@ echo "  --grad-accum-steps = $GRAD_ACCUM_STEPS"
 # train base model on DGX Spark
 # long goal 21400, loss: 2.727
 # python -m scripts.base_train -- --depth=20 --run=$WANDB_RUN
-python -m scripts.base_train \
-    --depth=$DEPTH \
-    --fp8 \
-    --aspect-ratio=$ASPECT_RATIO \
-    --head-dim=$HEAD_DIM \
-    --window-pattern=L \
-    --max-seq-len=$MAX_SEQ_LENGTH \
-    --device-batch-size=$DEVICE_BATCH_SIZE \
-    --total-batch-size=$TOTAL_BATCH_SIZE \
-    --eval-every=100 \
-    --eval-tokens=$SPLIT_TOKENS \
-    --core-metric-every=-1 \
-    --sample-every=100 \
-    --num-iterations=$ITERATIONS \
-    --device-type=$DEVICE_TYPE \
-    --run=$WANDB_RUN
 
+# evaluate base model
+python -m scripts.base_eval --device-batch-size=1 --split-tokens=16384 --max-per-task=16 --model-tag="d6" --step=5000
