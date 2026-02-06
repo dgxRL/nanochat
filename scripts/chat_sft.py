@@ -16,7 +16,8 @@ import time
 import wandb
 import torch
 from contextlib import nullcontext
-from nanochat.common import compute_init, compute_cleanup, print0, DummyWandb, get_base_dir, autodetect_device_type
+from nanochat.common import compute_init, compute_cleanup, print0, DummyWandb, get_base_dir, autodetect_device_type, thermal_pause_if_needed
+from nanochat.profiler import Profiler
 from nanochat.tokenizer import get_token_bytes
 from nanochat.checkpoint_manager import save_checkpoint
 from nanochat.loss_eval import evaluate_bpb
@@ -70,6 +71,10 @@ ptdtype = torch.float32 if args.dtype == 'float32' else torch.bfloat16
 autocast_ctx = torch.amp.autocast(device_type=device_type, dtype=ptdtype) if device_type == "cuda" else nullcontext()
 synchronize = torch.cuda.synchronize if device_type == "cuda" else lambda: None
 get_max_memory = torch.cuda.max_memory_allocated if device_type == "cuda" else lambda: 0
+
+# Thermal monitoring (prevents overheating on DGX Spark)
+profiler = Profiler(device_type)
+cpu_temp_history = []  # stores last N temperatures for thermal pause detection
 
 # wandb logging init
 use_dummy_wandb = args.run == "dummy" or not master_process
@@ -316,6 +321,9 @@ while True:
     synchronize()
     t0 = time.time()
     for micro_step in range(grad_accum_steps):
+        # CPU temperature monitoring: check each micro_step since each forward/backward can cause thermal throttle
+        current_temp = profiler.get_cpu_temp()
+        thermal_pause_if_needed(cpu_temp_history, current_temp, history_size=10)
         with autocast_ctx:
             loss = model(x, y)
         train_loss = loss.detach() # for logging
@@ -350,7 +358,10 @@ while True:
     mfu = 100 * flops_per_sec / promised_flops_per_sec_h100 # in %
     if step > 10:
         total_training_time += dt # only count the time after the first 10 steps
-    print0(f"step {step:05d} ({pct_done:.2f}%) | loss: {debiased_smooth_loss:.6f} | lrm: {lrm:.2f} | dt: {dt * 1000:.2f}ms | tok/sec: {tok_per_sec:,} | mfu: {mfu:.2f} | epoch: {current_epoch} | total time: {total_training_time/60:.2f}m")
+    # Capture profiler metrics for temperature logging
+    metrics = profiler.capture()
+    current_temp = metrics["cpu_temp_c"]
+    print0(f"step {step:05d} ({pct_done:.2f}%) | loss: {debiased_smooth_loss:.6f} | lrm: {lrm:.2f} | dt: {dt * 1000:.2f}ms | tok/sec: {tok_per_sec:,} | mfu: {mfu:.2f} | epoch: {current_epoch} | total time: {total_training_time/60:.2f}m | temp: {current_temp:.1f}C")
     if step % 10 == 0:
         wandb_run.log({
             "step": step,
@@ -362,6 +373,10 @@ while True:
             "train/tok_per_sec": tok_per_sec,
             "train/mfu": mfu,
             "train/epoch": current_epoch,
+            "train/temp": current_temp,
+            "train/gpu_temp_c": metrics["gpu_temp_c"],
+            "train/cpu_mem": metrics["cpu_mem_mb"],
+            "train/gpu_mem": metrics["gpu_mem_mb"],
         })
 
 # print a few more stats
