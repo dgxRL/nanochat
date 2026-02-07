@@ -12,3 +12,4 @@ eval_bundle/
 CLAUDE.md
 wandb/
 nanochat.egg-info/
+uv.lock
